@@ -16,7 +16,10 @@ contract CryptAidTest is Test {
         owner = address(this); // deploy account
     }
 
-    // Test1 1: Create a campaign
+    // Add receive function to accept Ether
+    receive() external payable {}
+
+    // Test 1: Create a campaign
     function test_AddCampaign() public {
         cryptAid.addCampaign("Title", "Desc", "video.com", "image.com");
         
@@ -37,7 +40,7 @@ contract CryptAidTest is Test {
 
         // Give balance to user1
         vm.deal(user1, 1 ether);
-        // Execute  donate as user1
+        // Execute donate as user1
         vm.prank(user1);
         cryptAid.donate{value: 0.5 ether}(1);
 
@@ -45,14 +48,20 @@ contract CryptAidTest is Test {
         assertEq(balance, 0.5 ether);
     }
 
-    // Test 3: Try to donate in a closed campaign
+    // Test 3: Try to donate to a closed campaign
     function test_DonateClosedCampaign() public {
         cryptAid.addCampaign("Title", "Desc", "video.com", "image.com");
+
+        // Add sufficient balance before closing
+        vm.deal(user2, 1 ether);
+        vm.prank(user2);
+        cryptAid.donate{value: 0.5 ether}(1);
 
         // Close campaign manually (simulating withdrawal)
         vm.prank(owner);
         cryptAid.withdraw(1);
 
+        // Try to donate to closed campaign
         vm.deal(user1, 1 ether);
         vm.prank(user1);
         vm.expectRevert(bytes("Campaign is not active"));
@@ -72,7 +81,7 @@ contract CryptAidTest is Test {
         cryptAid.withdraw(1);
 
         (, , , , , uint256 balanceAfter, bool active) = cryptAid.campaings(1);
-        assertEq(balanceAfter, 1 ether); // stored balance remains, but campaign remains inactive
+        assertEq(balanceAfter, 1 ether); // stored balance remains, but campaign is inactive
         assertFalse(active);
 
         uint256 expected = 1 ether - cryptAid.fee();
@@ -87,7 +96,7 @@ contract CryptAidTest is Test {
         cryptAid.withdraw(1);
     }
 
-   // Test 6: Withdraw without being the author
+    // Test 6: Withdraw without being the author
     function test_WithdrawNotAuthor() public {
         cryptAid.addCampaign("Title", "Desc", "video.com", "image.com");
 
