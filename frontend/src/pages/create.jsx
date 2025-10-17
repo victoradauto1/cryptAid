@@ -5,7 +5,12 @@ import { useState } from "react";
 import { addCampaign } from "@/services/web3Service";
 
 export default function Create() {
-  const [campaign, setCampaign] = useState({});
+  const [campaign, setCampaign] = useState({
+    title: "",
+    description: "",
+    imageUrl: "",
+    videoUrl: ""
+  });
   const [message, setMessage] = useState("");
 
   function onInputChange(evt) {
@@ -13,12 +18,22 @@ export default function Create() {
   }
 
   function btnSaveClick() {
+    if (!campaign.title || !campaign.description || !campaign.imageUrl || !campaign.videoUrl) {
+      setMessage("Por favor, preencha todos os campos!");
+      return;
+    }
+
     setMessage("Salvando... Aguarde...");
     addCampaign(campaign)
-      .then(tx => setMessage(JSON.stringify(tx)))
-      .catch(err =>{
+      .then(tx => {
+        const message = JSON.stringify(tx, (key, value) =>
+          typeof value === "bigint" ? value.toString() : value
+        );
+        setMessage(message);
+      })
+      .catch(err => {
         console.error(err);
-        setMessage(err.me)
+        setMessage(err.message || JSON.stringify(err))
       })
   }
 
@@ -59,22 +74,22 @@ export default function Create() {
           <div className="form-floating mb-3">
             <input
               type="text"
-              id="imageURL"
+              id="imageUrl"
               className="form-control"
               value={campaign.imageUrl}
               onChange={onInputChange}
             />
-            <label htmlFor="imageURL">URL da imagem: </label>
+            <label htmlFor="imageUrl">URL da imagem: </label>
           </div>
           <div className="form-floating mb-3">
             <input
               type="text"
-              id="videoURL"
+              id="videoUrl"
               className="form-control"
               value={campaign.videoUrl}
               onChange={onInputChange}
             />
-            <label htmlFor="videoURL">URL do vídeo: </label>
+            <label htmlFor="videoUrl">URL do vídeo: </label>
           </div>
         </div>
         <div className="col-6">
