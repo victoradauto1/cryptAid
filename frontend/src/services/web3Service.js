@@ -27,7 +27,7 @@ async function ensureSepoliaNetwork() {
               chainName: "Sepolia Test Network",
               rpcUrls: [
                 "https://sepolia.infura.io/v3/f71ddab62f1541af98f2783a5b79fecf",
-              ], // 🔸 substitua pelo seu RPC se quiser
+              ],
               nativeCurrency: {
                 name: "SepoliaETH",
                 symbol: "ETH",
@@ -69,7 +69,12 @@ function getContract() {
 export async function addCampaign(campaign) {
   await ensureSepoliaNetwork();
   const contract = getContract();
-  return contract.methods
+  
+  // Pega o ID atual antes de criar a campanha
+  const currentId = await contract.methods.nextId().call();
+  
+  // Cria a campanha
+  await contract.methods
     .addCampaign(
       campaign.title,
       campaign.description,
@@ -77,6 +82,9 @@ export async function addCampaign(campaign) {
       campaign.imageUrl
     )
     .send();
+  
+  // Retorna o ID da campanha criada
+  return { campaignId: currentId.toString() };
 }
 
 export async function getLastCampignId() {

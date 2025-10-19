@@ -25,11 +25,8 @@ export default function Create() {
 
     setMessage("Salvando... Aguarde...");
     addCampaign(campaign)
-      .then(tx => {
-        const message = JSON.stringify(tx, (key, value) =>
-          typeof value === "bigint" ? value.toString() : value
-        );
-        setMessage(message);
+      .then(result => {
+        setMessage(`✅ Campanha criada com sucesso!\n\nID da Campanha: ${result.campaignId}\n\nCompartilhe esse ID para receber doações!`);
       })
       .catch(err => {
         console.error(err);
