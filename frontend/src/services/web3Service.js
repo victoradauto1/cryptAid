@@ -96,7 +96,7 @@ export async function getLastCampignId() {
 export async function getCampaign(id) {
   await ensureSepoliaNetwork();
   const contract = getContract();
-  return contract.methods.campaigns(id).call();
+  return contract.methods.campaings(id).call();
 }
 
 export async function donate(id, donation) {
