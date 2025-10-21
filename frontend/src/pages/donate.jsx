@@ -1,235 +1,313 @@
 import Footer from "@/components/Footer";
 import Head from "next/head";
-import Link from "next/link";
 import { useState } from "react";
 import { getCampaign, donate } from "@/services/web3Service";
+import Web3 from "web3";
 
 export default function Donate() {
-  const [campaign, setCampaign] = useState({
-    title: "",
-    description: "",
-    imageUrl: "",
-    videoUrl: "",
-    balance: 0,
-  });
+  const [campaignId, setCampaignId] = useState("");
+  const [campaign, setCampaign] = useState(null);
   const [donation, setDonation] = useState("");
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  function onChangeId(evt) {
-    setCampaign(prevState => ({ ...prevState, id: evt.target.value }));
-  }
-
-  function btnSearchClick() {
-    if (!campaign.id) {
-      setMessage("Por favor, insira um ID válido!");
+  async function handleSearch() {
+    if (!campaignId || campaignId < 1) {
+      setMessage("❌ Digite um ID válido (maior que 0)");
       return;
     }
 
-    setMessage("Buscando... Aguarde...");
-    getCampaign(campaign.id)
-      .then((result) => {
-        console.log("Campanha encontrada:", result);
-        setMessage("");
-        setCampaign({
-          ...result,
-          id: campaign.id,
-          balance: result.balance ? BigInt(result.balance).toString() : "0",
-          author: result.author || "Endereço não disponível",
-          imageUrl: result.imageUrl || "",
-          videoUrl: result.videoUrl || "",
-        });
-      })
-      .catch((err) => {
-        console.error("Erro ao buscar campanha:", err);
-        setMessage(err.message || "Erro ao buscar campanha");
-        setCampaign({
-          title: "",
-          description: "",
-          imageUrl: "",
-          videoUrl: "",
-          balance: 0,
-        });
-      });
+    setIsLoading(true);
+    setMessage("🔍 Buscando campanha...");
+    setCampaign(null);
+
+    try {
+      const result = await getCampaign(campaignId);
+      console.log("Resultado bruto:", result);
+
+      // Verifica se existe (author não é endereço zero)
+      if (
+        !result.author ||
+        result.author === "0x0000000000000000000000000000000000000000"
+      ) {
+        setMessage(`❌ Campanha ${campaignId} não existe`);
+        setIsLoading(false);
+        return;
+      }
+
+      // Verifica se está ativa
+      if (!result.active) {
+        setMessage(`❌ Campanha ${campaignId} está fechada`);
+        setIsLoading(false);
+        return;
+      }
+
+      const campaignData = {
+        id: campaignId,
+        author: result.author,
+        title: result.title || "Sem título",
+        description: result.description || "Sem descrição",
+        videoUrl: result.videoUrl || "",
+        imageUrl: result.imageUrl || "",
+        balance: result.balance ? result.balance.toString() : "0",
+        active: result.active,
+      };
+
+      console.log("Campanha processada:", campaignData);
+      setCampaign(campaignData);
+      setMessage("");
+    } catch (error) {
+      console.error("Erro ao buscar:", error);
+      setMessage(`❌ Erro: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  function onChangeValue(evt) {
-    setDonation(evt.target.value);
-  }
-
-  function btnDonateClick() {
-    if (!donation || Number(donation) <= 0) {
-      setMessage("Por favor, insira um valor válido!");
+  async function handleDonate() {
+    if (!donation || parseFloat(donation) <= 0) {
+      setMessage("❌ Digite um valor válido maior que 0");
       return;
     }
 
-    setMessage("Processando doação... Aguarde...");
-    donate(campaign.id, donation)
-      .then((tx) => {
-        console.log("Transação confirmada:", tx);
-        setMessage(
-          "✅ Doação realizada com sucesso! Em alguns minutos o saldo será atualizado."
-        );
-        setDonation("");
-      })
-      .catch((err) => {
-        console.error("Erro na doação:", err);
-        setMessage(err.message || "Erro ao realizar doação");
-      });
+    setIsLoading(true);
+    setMessage("🦊 Confirme a transação na MetaMask...");
+
+    try {
+      console.log(`Iniciando doação de ${donation} ETH para campanha ${campaignId}`);
+      
+      const tx = await donate(campaignId, donation);
+      
+      console.log("Transação enviada:", tx);
+      setMessage(
+        `✅ Doação realizada!\n\nHash: ${tx.transactionHash}\n\nAtualize a página em alguns segundos para ver o novo saldo.`
+      );
+      setDonation("");
+
+      // Atualiza a campanha após 5 segundos
+      setTimeout(() => {
+        handleSearch();
+      }, 5000);
+    } catch (error) {
+      console.error("Erro completo:", error);
+
+      if (error.code === 4001) {
+        setMessage("❌ Você cancelou a transação");
+      } else if (error.message?.includes("Campaign is not active")) {
+        setMessage("❌ Esta campanha não está ativa");
+      } else if (error.message?.includes("insufficient funds")) {
+        setMessage("❌ Saldo insuficiente (inclua gas fee)");
+      } else {
+        setMessage(`❌ Erro: ${error.message || "Transação falhou"}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  const balanceInEth =
-    campaign.balance && campaign.balance !== "0"
-      ? (Number(campaign.balance) / 10 ** 18).toFixed(4)
-      : "0";
+  const balanceInEth = campaign?.balance
+    ? (parseFloat(campaign.balance) / 1e18).toFixed(6)
+    : "0";
 
   return (
     <>
       <Head>
-        <title>Crypt Aid | Fazer Doação</title>
+        <title>CryptAid | Doar</title>
         <meta charSet="utf-8" />
-        <meta name="description" content="Faça uma doação para uma campanha" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <div className="container">
-        <h1 className="display-5 fw-bold text-body-emphasis lh-1 mb-3">
-          Crypt Aid
-        </h1>
 
-        {!campaign.id ? (
-          <>
-            <p className="mb-5">Qual é o ID da campanha que procura?</p>
-            <div className="col-3">
+      <div className="container py-5">
+        <h1 className="display-5 fw-bold mb-4">CryptAid</h1>
+
+        {!campaign ? (
+          <div className="row">
+            <div className="col-md-6">
+              <h3 className="mb-4">Buscar Campanha</h3>
+              <p className="text-muted mb-4">
+                Digite o ID da campanha que deseja apoiar
+              </p>
+
               <div className="input-group mb-3">
                 <input
                   type="number"
-                  id="campaignId"
-                  className="form-control"
-                  onChange={onChangeId}
-                  placeholder="Digite o ID da campanha"
-                  min="0"
+                  className="form-control form-control-lg"
+                  placeholder="ID da campanha"
+                  value={campaignId}
+                  onChange={(e) => setCampaignId(e.target.value)}
+                  min="1"
+                  disabled={isLoading}
                 />
-                <input
-                  type="button"
-                  value="Buscar"
-                  className="btn btn-primary"
-                  onClick={btnSearchClick}
-                />
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={handleSearch}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Buscando..." : "Buscar"}
+                </button>
               </div>
+
+              {message && (
+                <div
+                  className={`alert ${
+                    message.includes("✅") ? "alert-success" : "alert-warning"
+                  }`}
+                  style={{ whiteSpace: "pre-line" }}
+                >
+                  {message}
+                </div>
+              )}
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <p>
-              Verifique se esta é a campanha certa antes de finalizar a doação.
-            </p>
-            <hr />
-            <div className="row flex-lg-row-reverse align-items-center g-5">
-              <div className="col-7">
-                {campaign.videoUrl ? (
-                  <iframe
-                    width="100%"
-                    height="480"
-                    src={campaign.videoUrl}
-                    title="Video da campanha"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                ) : campaign.imageUrl ? (
-                  <img
-                    src={campaign.imageUrl}
-                    alt={campaign.title}
-                    className="d-block mx-lg-auto img-fluid"
-                    style={{
-                      maxWidth: "640px",
-                      maxHeight: "480px",
-                      objectFit: "cover",
-                    }}
-                    onError={(e) => {
-                      e.target.src =
-                        "https://via.placeholder.com/640x480?text=Imagem+Indisponível";
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="bg-light d-flex align-items-center justify-content-center"
-                    style={{ width: "640px", height: "480px" }}
-                  >
-                    <p className="text-muted">Sem mídia disponível</p>
-                  </div>
-                )}
-              </div>
-              <div className="col-5">
-                <h2>{campaign.title || "Campanha"}</h2>
-                <p>
-                  <strong>Autor:</strong> {campaign.author || "Desconhecido"}
-                </p>
-                <p className="mb-3">{campaign.description}</p>
-                {campaign.videoUrl && (
-                  <p className="text-muted">
-                    Assista ao vídeo ao lado para entender melhor nossa campanha.
-                  </p>
-                )}
-                <div className="mt-5 pt-3 border-top">
-                  <p className="mb-3">
-                    <strong>Total arrecadado:</strong> {balanceInEth} ETH
-                  </p>
-                  <p className="mb-3">
-                    Quanto você quer doar em ETH (Sepolia)?
-                  </p>
-                  <div className="input-group mb-3">
-                    <input
-                      type="number"
-                      className="form-control"
-                      onChange={onChangeValue}
-                      value={donation}
-                      placeholder="0.0"
-                      step="0.001"
-                      min="0"
-                    />
-                    <span className="input-group-text">ETH</span>
-                    <button
-                      className="btn btn-primary"
-                      onClick={btnDonateClick}
-                      disabled={!donation || Number(donation) <= 0}
-                    >
-                      Doar
-                    </button>
+          <div>
+            <button
+              className="btn btn-secondary mb-4"
+              onClick={() => {
+                setCampaign(null);
+                setCampaignId("");
+                setMessage("");
+              }}
+            >
+              ← Buscar outra campanha
+            </button>
+
+            <div className="row g-4">
+              <div className="col-lg-7">
+                <div className="card">
+                  <div className="card-body">
+                    {campaign.videoUrl ? (
+                      <div className="ratio ratio-16x9">
+                        <iframe
+                          src={campaign.videoUrl}
+                          title="Vídeo da campanha"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    ) : campaign.imageUrl ? (
+                      <img
+                        src={campaign.imageUrl}
+                        alt={campaign.title}
+                        className="img-fluid w-100"
+                        style={{ maxHeight: "500px", objectFit: "cover" }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src =
+                            "https://via.placeholder.com/800x500/6c757d/ffffff?text=Imagem+Indisponível";
+                        }}
+                      />
+                    ) : (
+                      <div
+                        className="bg-light d-flex align-items-center justify-content-center"
+                        style={{ height: "400px" }}
+                      >
+                        <p className="text-muted">Sem mídia disponível</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div className="mt-4">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() =>
-                      setCampaign({
-                        title: "",
-                        description: "",
-                        imageUrl: "",
-                        videoUrl: "",
-                        balance: 0,
-                      })
-                    }
-                  >
-                    Buscar outra campanha
-                  </button>
+              <div className="col-lg-5">
+                <div className="card">
+                  <div className="card-body">
+                    <h2 className="card-title">{campaign.title}</h2>
+                    
+                    <div className="mb-3">
+                      <small className="text-muted">Criador:</small>
+                      <p className="font-monospace small mb-0">
+                        {campaign.author}
+                      </p>
+                    </div>
+
+                    <p className="card-text">{campaign.description}</p>
+
+                    <hr />
+
+                    <div className="mb-4">
+                      <h5>Total Arrecadado</h5>
+                      <h3 className="text-primary">{balanceInEth} ETH</h3>
+                      <small className="text-muted">Rede Sepolia</small>
+                    </div>
+
+                    <hr />
+
+                    <h5 className="mb-3">Fazer Doação</h5>
+                    
+                    <div className="btn-group w-100 mb-3" role="group">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        onClick={() => setDonation("0.005")}
+                        disabled={isLoading}
+                      >
+                        0.005 ETH<br />
+                        <small>~$20</small>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        onClick={() => setDonation("0.01")}
+                        disabled={isLoading}
+                      >
+                        0.01 ETH<br />
+                        <small>~$40</small>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary"
+                        onClick={() => setDonation("0.025")}
+                        disabled={isLoading}
+                      >
+                        0.025 ETH<br />
+                        <small>~$100</small>
+                      </button>
+                    </div>
+
+                    <p className="text-muted small mb-2">Ou digite um valor personalizado:</p>
+                    <div className="input-group mb-3">
+                      <input
+                        type="number"
+                        className="form-control"
+                        placeholder="0.005 (aprox. $20)"
+                        value={donation}
+                        onChange={(e) => setDonation(e.target.value)}
+                        step="0.001"
+                        min="0.001"
+                        max="1"
+                        disabled={isLoading}
+                      />
+                      <span className="input-group-text">ETH</span>
+                    </div>
+
+                    <button
+                      className="btn btn-success btn-lg w-100"
+                      onClick={handleDonate}
+                      disabled={isLoading || !donation || parseFloat(donation) <= 0}
+                    >
+                      {isLoading ? "Processando..." : "💚 Doar Agora"}
+                    </button>
+
+                    {message && (
+                      <div
+                        className={`alert mt-3 ${
+                          message.includes("✅")
+                            ? "alert-success"
+                            : "alert-warning"
+                        }`}
+                        style={{ whiteSpace: "pre-line" }}
+                      >
+                        {message}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </>
-        )}
-
-        {message && (
-          <div
-            className={`alert ${
-              message.includes("✅") ? "alert-success" : "alert-danger"
-            } p-3 mt-4 col-6`}
-            role="alert"
-          >
-            {message}
           </div>
         )}
       </div>
+
       <Footer />
     </>
   );
