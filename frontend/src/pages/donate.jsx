@@ -25,7 +25,7 @@ export default function Donate() {
       const result = await getCampaign(campaignId);
       console.log("Resultado bruto:", result);
 
-      // Verifica se existe (author não é endereço zero)
+      // Verify if the author address is not zero
       if (
         !result.author ||
         result.author === "0x0000000000000000000000000000000000000000"
@@ -35,7 +35,7 @@ export default function Donate() {
         return;
       }
 
-      // Verifica se está ativa
+      // Verify if is active
       if (!result.active) {
         setMessage(`❌ Campanha ${campaignId} está fechada`);
         setIsLoading(false);
