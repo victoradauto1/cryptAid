@@ -10,6 +10,31 @@ export default function Donate() {
   const [donation, setDonation] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Função para validar se a URL da imagem é válida
+  function isValidImageUrl(url) {
+    if (!url) return false;
+
+    // Bloqueia URLs do GitHub que não são raw
+    if (url.includes("github.com") && !url.includes("raw.githubusercontent.com")) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Função para validar se a URL do vídeo é válida
+  function isValidVideoUrl(url) {
+    if (!url) return false;
+
+    // Aceita apenas YouTube embed
+    if (url.includes("youtube.com/embed") || url.includes("youtu.be")) {
+      return true;
+    }
+
+    return false;
+  }
 
   async function handleSearch() {
     if (!campaignId || campaignId < 1) {
@@ -25,17 +50,12 @@ export default function Donate() {
       const result = await getCampaign(campaignId);
       console.log("Resultado bruto:", result);
 
-      // Verify if the author address is not zero
-      if (
-        !result.author ||
-        result.author === "0x0000000000000000000000000000000000000000"
-      ) {
+      if (!result.author || result.author === "0x0000000000000000000000000000000000000000") {
         setMessage(`❌ Campanha ${campaignId} não existe`);
         setIsLoading(false);
         return;
       }
 
-      // Verify if is active
       if (!result.active) {
         setMessage(`❌ Campanha ${campaignId} está fechada`);
         setIsLoading(false);
@@ -55,6 +75,7 @@ export default function Donate() {
 
       console.log("Campanha processada:", campaignData);
       setCampaign(campaignData);
+      setImageError(!isValidImageUrl(campaignData.imageUrl));
       setMessage("");
     } catch (error) {
       console.error("Erro ao buscar:", error);
@@ -75,16 +96,15 @@ export default function Donate() {
 
     try {
       console.log(`Iniciando doação de ${donation} ETH para campanha ${campaignId}`);
-      
+
       const tx = await donate(campaignId, donation);
-      
+
       console.log("Transação enviada:", tx);
       setMessage(
         `✅ Doação realizada!\n\nHash: ${tx.transactionHash}\n\nAtualize a página em alguns segundos para ver o novo saldo.`
       );
       setDonation("");
 
-      // Atualiza a campanha após 5 segundos
       setTimeout(() => {
         handleSearch();
       }, 5000);
@@ -172,47 +192,56 @@ export default function Donate() {
               ← Buscar outra campanha
             </button>
 
-            <div className="row g-4">
+            <div className="row g-4 align-items-stretch">
+              {/* CARD DA IMAGEM/VÍDEO */}
               <div className="col-lg-7">
-                <div className="card">
-                  <div className="card-body">
-                    {campaign.videoUrl ? (
-                      <div className="ratio ratio-16x9">
+                <div className="card h-100">
+                  <div
+                    className="card-body d-flex justify-content-center align-items-center"
+                    style={{ minHeight: "500px", backgroundColor: "#f8f9fa" }}
+                  >
+                    {campaign.videoUrl && isValidVideoUrl(campaign.videoUrl) ? (
+                      <div className="ratio ratio-16x9 w-100">
                         <iframe
                           src={campaign.videoUrl}
                           title="Vídeo da campanha"
                           allowFullScreen
                         ></iframe>
                       </div>
-                    ) : campaign.imageUrl ? (
+                    ) : campaign.imageUrl && isValidImageUrl(campaign.imageUrl) && !imageError ? (
                       <img
                         src={campaign.imageUrl}
                         alt={campaign.title}
-                        className="img-fluid w-100"
-                        style={{ maxHeight: "500px", objectFit: "cover" }}
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src =
-                            "https://via.placeholder.com/800x500/6c757d/ffffff?text=Imagem+Indisponível";
+                        className="img-fluid"
+                        style={{
+                          maxHeight: "500px",
+                          objectFit: "cover",
+                          borderRadius: "12px",
                         }}
+                        onError={() => setImageError(true)}
                       />
                     ) : (
-                      <div
-                        className="bg-light d-flex align-items-center justify-content-center"
-                        style={{ height: "400px" }}
-                      >
-                        <p className="text-muted">Sem mídia disponível</p>
-                      </div>
+                      <img
+                        src="/defaultImg.jpg"
+                        alt="Imagem padrão de campanha"
+                        className="img-fluid"
+                        style={{
+                          maxHeight: "500px",
+                          objectFit: "cover",
+                          borderRadius: "12px",
+                        }}
+                      />
                     )}
                   </div>
                 </div>
               </div>
 
+              {/* CARD DAS INFORMAÇÕES */}
               <div className="col-lg-5">
-                <div className="card">
+                <div className="card h-100">
                   <div className="card-body">
                     <h2 className="card-title">{campaign.title}</h2>
-                    
+
                     <div className="mb-3">
                       <small className="text-muted">Criador:</small>
                       <p className="font-monospace small mb-0">
@@ -233,7 +262,7 @@ export default function Donate() {
                     <hr />
 
                     <h5 className="mb-3">Fazer Doação</h5>
-                    
+
                     <div className="btn-group w-100 mb-3" role="group">
                       <button
                         type="button"
@@ -241,7 +270,8 @@ export default function Donate() {
                         onClick={() => setDonation("0.005")}
                         disabled={isLoading}
                       >
-                        0.005 ETH<br />
+                        0.005 ETH
+                        <br />
                         <small>~$20</small>
                       </button>
                       <button
@@ -250,7 +280,8 @@ export default function Donate() {
                         onClick={() => setDonation("0.01")}
                         disabled={isLoading}
                       >
-                        0.01 ETH<br />
+                        0.01 ETH
+                        <br />
                         <small>~$40</small>
                       </button>
                       <button
@@ -259,12 +290,15 @@ export default function Donate() {
                         onClick={() => setDonation("0.025")}
                         disabled={isLoading}
                       >
-                        0.025 ETH<br />
+                        0.025 ETH
+                        <br />
                         <small>~$100</small>
                       </button>
                     </div>
 
-                    <p className="text-muted small mb-2">Ou digite um valor personalizado:</p>
+                    <p className="text-muted small mb-2">
+                      Ou digite um valor personalizado:
+                    </p>
                     <div className="input-group mb-3">
                       <input
                         type="number"
@@ -283,7 +317,9 @@ export default function Donate() {
                     <button
                       className="btn btn-success btn-lg w-100"
                       onClick={handleDonate}
-                      disabled={isLoading || !donation || parseFloat(donation) <= 0}
+                      disabled={
+                        isLoading || !donation || parseFloat(donation) <= 0
+                      }
                     >
                       {isLoading ? "Processando..." : "💚 Doar Agora"}
                     </button>
