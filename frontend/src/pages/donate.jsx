@@ -2,7 +2,6 @@ import Footer from "@/components/Footer";
 import Head from "next/head";
 import { useState } from "react";
 import { getCampaign, donate } from "@/services/web3Service";
-import Web3 from "web3";
 
 export default function Donate() {
   const [campaignId, setCampaignId] = useState("");
@@ -12,23 +11,23 @@ export default function Donate() {
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Função para validar se a URL da imagem é válida
+
   function isValidImageUrl(url) {
     if (!url) return false;
 
-    // Bloqueia URLs do GitHub que não são raw
-    if (url.includes("github.com") && !url.includes("raw.githubusercontent.com")) {
+    if (
+      url.includes("github.com") &&
+      !url.includes("raw.githubusercontent.com")
+    ) {
       return false;
     }
 
     return true;
   }
 
-  // Função para validar se a URL do vídeo é válida
   function isValidVideoUrl(url) {
     if (!url) return false;
 
-    // Aceita apenas YouTube embed
     if (url.includes("youtube.com/embed") || url.includes("youtu.be")) {
       return true;
     }
@@ -50,7 +49,10 @@ export default function Donate() {
       const result = await getCampaign(campaignId);
       console.log("Resultado bruto:", result);
 
-      if (!result.author || result.author === "0x0000000000000000000000000000000000000000") {
+      if (
+        !result.author ||
+        result.author === "0x0000000000000000000000000000000000000000"
+      ) {
         setMessage(`❌ Campanha ${campaignId} não existe`);
         setIsLoading(false);
         return;
@@ -95,7 +97,9 @@ export default function Donate() {
     setMessage("🦊 Confirme a transação na MetaMask...");
 
     try {
-      console.log(`Iniciando doação de ${donation} ETH para campanha ${campaignId}`);
+      console.log(
+        `Iniciando doação de ${donation} ETH para campanha ${campaignId}`
+      );
 
       const tx = await donate(campaignId, donation);
 
@@ -193,7 +197,7 @@ export default function Donate() {
             </button>
 
             <div className="row g-4 align-items-stretch">
-              {/* CARD DA IMAGEM/VÍDEO */}
+              {/* VÍDEO/IMAGE CARD */}
               <div className="col-lg-7">
                 <div className="card h-100">
                   <div
@@ -208,7 +212,9 @@ export default function Donate() {
                           allowFullScreen
                         ></iframe>
                       </div>
-                    ) : campaign.imageUrl && isValidImageUrl(campaign.imageUrl) && !imageError ? (
+                    ) : campaign.imageUrl &&
+                      isValidImageUrl(campaign.imageUrl) &&
+                      !imageError ? (
                       <img
                         src={campaign.imageUrl}
                         alt={campaign.title}
@@ -236,7 +242,7 @@ export default function Donate() {
                 </div>
               </div>
 
-              {/* CARD DAS INFORMAÇÕES */}
+              {/* INFORMATION CARD */}
               <div className="col-lg-5">
                 <div className="card h-100">
                   <div className="card-body">
