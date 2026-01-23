@@ -1,340 +1,230 @@
 import { expect } from "chai";
-import { network } from "hardhat";
-const { ethers } = await network.connect();
-import { CryptAid } from "../types/ethers-contracts/CryptAid.js";
-import { Signer } from "ethers";
+import { ethers } from "hardhat";
+import { CryptAid } from "../typechain-types";
 
-describe("CryptAid Tests", function () {
+describe("CryptAid", function () {
   let cryptAid: CryptAid;
-  let owner: Signer;
-  let user1: Signer;
-  let user2: Signer;
-  let user3: Signer;
+  let owner: any;
+  let author: any;
+  let donor1: any;
+  let donor2: any;
 
-  beforeEach(async function () {
-    [owner, user1, user2, user3] = await ethers.getSigners();
+  const ONE_ETH = ethers.parseEther("1");
 
-    const CryptAidFactory = await ethers.getContractFactory("CryptAid");
+  beforeEach(async () => {
+    [owner, author, donor1, donor2] = await ethers.getSigners();
+
+    const CryptAidFactory = await ethers.getContractFactory("CryptAid", owner);
     cryptAid = await CryptAidFactory.deploy();
     await cryptAid.waitForDeployment();
   });
 
-  describe("Deployment", function () {
-    it("Should initialize with fee = 100", async function () {
-      expect(await cryptAid.fee()).to.equal(100);
+  /*//////////////////////////////////////////////////////////////
+                          CAMPAIGN CREATION
+  //////////////////////////////////////////////////////////////*/
+
+  describe("createCampaign", () => {
+    it("creates a campaign successfully", async () => {
+      const now = await time();
+
+      const deadline = now + 1000;
+
+      const tx = await cryptAid
+        .connect(author)
+        .createCampaign("Help", "Desc", "", "", ONE_ETH, deadline);
+
+      await expect(tx)
+        .to.emit(cryptAid, "CampaignCreated")
+        .withArgs(0, author.address, "Help", ONE_ETH, deadline);
+
+      const campaign = await cryptAid.getCampaign(0);
+      expect(campaign.author).to.equal(author.address);
+      expect(campaign.status).to.equal(0); // ACTIVE
     });
 
-    it("Should initialize with nextId = 0", async function () {
-      expect(await cryptAid.nextId()).to.equal(0);
+    it("reverts with empty title", async () => {
+      await expect(
+        cryptAid.createCampaign("", "x", "", "", 0, 0),
+      ).to.be.revertedWithCustomError(cryptAid, "EmptyTitle");
+    });
+
+    it("reverts with invalid deadline", async () => {
+      await expect(
+        cryptAid.createCampaign("x", "x", "", "", 0, (await time()) - 1),
+      ).to.be.revertedWithCustomError(cryptAid, "InvalidDeadline");
     });
   });
 
-  describe("addCampaign", function () {
-    it("Should create a campaign successfully", async function () {
-      await cryptAid.connect(owner).addCampaign(
-        "Test Title",
-        "Test Description",
-        "https://video.com",
-        "https://image.com"
+  /*//////////////////////////////////////////////////////////////
+                              DONATIONS
+  //////////////////////////////////////////////////////////////*/
+
+  describe("donate", () => {
+    beforeEach(async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+    });
+
+    it("accepts donation and tracks donor", async () => {
+      await expect(cryptAid.connect(donor1).donate(0, { value: ONE_ETH }))
+        .to.emit(cryptAid, "DonationReceived")
+        .withArgs(0, donor1.address, ONE_ETH);
+
+      expect(await cryptAid.getDonation(0, donor1.address)).to.equal(ONE_ETH);
+      expect(await cryptAid.getDonorCount(0)).to.equal(1);
+    });
+
+    it("reverts on zero donation", async () => {
+      await expect(
+        cryptAid.connect(donor1).donate(0, { value: 0 }),
+      ).to.be.revertedWithCustomError(cryptAid, "InvalidAmount");
+    });
+  });
+
+  /*//////////////////////////////////////////////////////////////
+                        AUTO COMPLETE (GOAL)
+  //////////////////////////////////////////////////////////////*/
+
+  describe("auto-complete on goal reached", () => {
+    it("completes campaign automatically when goal is reached", async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+
+      const authorBalanceBefore = await ethers.provider.getBalance(
+        author.address,
       );
 
-      const campaign = await cryptAid.campaings(1);
-      
-      expect(campaign.author).to.equal(await owner.getAddress());
-      expect(campaign.title).to.equal("Test Title");
-      expect(campaign.description).to.equal("Test Description");
-      expect(campaign.videoUrl).to.equal("https://video.com");
-      expect(campaign.imageUrl).to.equal("https://image.com");
-      expect(campaign.balance).to.equal(0);
-      expect(campaign.active).to.equal(true);
-    });
+      await expect(
+        cryptAid.connect(donor1).donate(0, { value: ONE_ETH }),
+      ).to.emit(cryptAid, "CampaignCompleted");
 
-    it("Should increment nextId after creating campaign", async function () {
-      await cryptAid.connect(user1).addCampaign("Title1", "Desc1", "vid1", "img1");
-      expect(await cryptAid.nextId()).to.equal(1);
+      const campaign = await cryptAid.getCampaign(0);
+      expect(campaign.status).to.equal(1); // COMPLETED
 
-      await cryptAid.connect(user2).addCampaign("Title2", "Desc2", "vid2", "img2");
-      expect(await cryptAid.nextId()).to.equal(2);
-    });
+      const fee = (ONE_ETH * BigInt(250)) / BigInt(10000);
+      const authorExpected = ONE_ETH - fee;
 
-    it("Should allow multiple users to create campaigns", async function () {
-      await cryptAid.connect(user1).addCampaign("Campaign 1", "Desc1", "v1", "i1");
-      await cryptAid.connect(user2).addCampaign("Campaign 2", "Desc2", "v2", "i2");
-      await cryptAid.connect(user3).addCampaign("Campaign 3", "Desc3", "v3", "i3");
+      const authorBalanceAfter = await ethers.provider.getBalance(
+        author.address,
+      );
 
-      const campaign1 = await cryptAid.campaings(1);
-      const campaign2 = await cryptAid.campaings(2);
-      const campaign3 = await cryptAid.campaings(3);
-
-      expect(campaign1.author).to.equal(await user1.getAddress());
-      expect(campaign2.author).to.equal(await user2.getAddress());
-      expect(campaign3.author).to.equal(await user3.getAddress());
-    });
-
-    it("Should create campaign with empty strings", async function () {
-      await cryptAid.connect(owner).addCampaign("", "", "", "");
-      
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.title).to.equal("");
-      expect(campaign.active).to.equal(true);
+      expect(authorBalanceAfter - authorBalanceBefore).to.equal(authorExpected);
     });
   });
 
-  describe("donate", function () {
-    beforeEach(async function () {
-      await cryptAid.connect(owner).addCampaign("Test", "Desc", "video", "image");
+  /*//////////////////////////////////////////////////////////////
+                          WITHDRAW
+  //////////////////////////////////////////////////////////////*/
+
+  describe("withdrawCampaign", () => {
+    it("allows withdraw after deadline", async () => {
+      const deadline = (await time()) + 10;
+
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", 0, deadline);
+
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+      await increaseTime(20);
+
+      await expect(cryptAid.connect(author).withdrawCampaign(0)).to.emit(
+        cryptAid,
+        "CampaignCompleted",
+      );
     });
 
-    it("Should allow donation to active campaign", async function () {
-      const donationAmount = ethers.parseEther("1.0");
+    it("reverts withdraw by non-author", async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
 
-      await cryptAid.connect(user1).donate(1, { value: donationAmount });
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
 
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(donationAmount);
-    });
-
-    it("Should fail when donating 0 value", async function () {
       await expect(
-        cryptAid.connect(user1).donate(1, { value: 0 })
-      ).to.be.revertedWith("Amount must be greater than 0");
-    });
-
-    it("Should fail when donating to inactive campaign", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("1.0") });
-      await cryptAid.connect(owner).withdraw(1);
-
-      await expect(
-        cryptAid.connect(user2).donate(1, { value: ethers.parseEther("0.5") })
-      ).to.be.revertedWith("Campaign is not active");
-    });
-
-    it("Should accumulate multiple donations", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("0.5") });
-      await cryptAid.connect(user2).donate(1, { value: ethers.parseEther("0.3") });
-      await cryptAid.connect(user3).donate(1, { value: ethers.parseEther("0.2") });
-
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(ethers.parseEther("1.0"));
-    });
-
-    it("Should allow author to donate to own campaign", async function () {
-      const donationAmount = ethers.parseEther("0.5");
-      
-      await cryptAid.connect(owner).donate(1, { value: donationAmount });
-
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(donationAmount);
-    });
-
-    it("Should fail when donating to non-existent campaign", async function () {
-      await expect(
-        cryptAid.connect(user1).donate(999, { value: ethers.parseEther("1.0") })
-      ).to.be.revertedWith("Campaign is not active");
+        cryptAid.connect(donor1).withdrawCampaign(0),
+      ).to.be.revertedWithCustomError(cryptAid, "Unauthorized");
     });
   });
 
-  describe("withdraw", function () {
-    beforeEach(async function () {
-      await cryptAid.connect(owner).addCampaign("Test", "Desc", "video", "image");
+  /*//////////////////////////////////////////////////////////////
+                          CANCEL
+  //////////////////////////////////////////////////////////////*/
+
+  describe("cancelCampaign", () => {
+    it("allows author to cancel if no donations", async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", 0, 0);
+
+      await expect(cryptAid.connect(author).cancelCampaign(0)).to.emit(
+        cryptAid,
+        "CampaignCancelled",
+      );
+
+      const campaign = await cryptAid.getCampaign(0);
+      expect(campaign.status).to.equal(2); // CANCELLED
     });
 
-    it("Should allow withdrawal by author with sufficient balance", async function () {
-      const donationAmount = ethers.parseEther("1.0");
-      const fee = await cryptAid.fee();
-      
-      await cryptAid.connect(user1).donate(1, { value: donationAmount });
+    it("reverts cancel if donations exist", async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", 0, 0);
 
-      const balanceBefore = await ethers.provider.getBalance(await owner.getAddress());
-      
-      const tx = await cryptAid.connect(owner).withdraw(1);
-      const receipt = await tx.wait();
-      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
-
-      const balanceAfter = await ethers.provider.getBalance(await owner.getAddress());
-      const expectedBalance = balanceBefore + donationAmount - fee - gasUsed;
-
-      expect(balanceAfter).to.equal(expectedBalance);
-    });
-
-    it("Should emit Withdrawn event", async function () {
-      const donationAmount = ethers.parseEther("1.0");
-      const fee = await cryptAid.fee();
-      const expectedAmount = donationAmount - fee;
-      
-      await cryptAid.connect(user1).donate(1, { value: donationAmount });
-
-      await expect(cryptAid.connect(owner).withdraw(1))
-        .to.emit(cryptAid, "Withdrawn")
-        .withArgs(1, expectedAmount, await owner.getAddress());
-    });
-
-    it("Should deactivate campaign after withdrawal", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("1.0") });
-      
-      await cryptAid.connect(owner).withdraw(1);
-
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.active).to.equal(false);
-    });
-
-    it("Should set balance to 0 after withdrawal", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("1.0") });
-      
-      await cryptAid.connect(owner).withdraw(1);
-
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(0);
-    });
-
-    it("Should fail if not the author", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("1.0") });
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
 
       await expect(
-        cryptAid.connect(user2).withdraw(1)
-      ).to.be.revertedWith("You do not have permission to withdraw");
-    });
-
-    it("Should fail if campaign is already closed", async function () {
-      await cryptAid.connect(user1).donate(1, { value: ethers.parseEther("1.0") });
-      
-      await cryptAid.connect(owner).withdraw(1);
-
-      await expect(
-        cryptAid.connect(owner).withdraw(1)
-      ).to.be.revertedWith("This campaign is closed");
-    });
-
-    it("Should fail if balance is insufficient (less than or equal to fee)", async function () {
-      await expect(
-        cryptAid.connect(owner).withdraw(1)
-      ).to.be.revertedWith("This campaign does not have enough balance");
-    });
-
-    it("Should fail if balance equals fee exactly", async function () {
-      const fee = await cryptAid.fee();
-      await cryptAid.connect(user1).donate(1, { value: fee });
-
-      await expect(
-        cryptAid.connect(owner).withdraw(1)
-      ).to.be.revertedWith("This campaign does not have enough balance");
-    });
-
-    it("Should work with balance = fee + 1 wei", async function () {
-      const fee = await cryptAid.fee();
-      await cryptAid.connect(user1).donate(1, { value: fee + 1n });
-
-      await cryptAid.connect(owner).withdraw(1);
-      
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.active).to.equal(false);
-    });
-
-    it("Should deduct fee correctly", async function () {
-      const donationAmount = ethers.parseEther("1.0");
-      const fee = await cryptAid.fee();
-      
-      await cryptAid.connect(user1).donate(1, { value: donationAmount });
-
-      const balanceBefore = await ethers.provider.getBalance(await owner.getAddress());
-      
-      const tx = await cryptAid.connect(owner).withdraw(1);
-      const receipt = await tx.wait();
-      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
-
-      const balanceAfter = await ethers.provider.getBalance(await owner.getAddress());
-      const received = balanceAfter - balanceBefore + gasUsed;
-
-      expect(received).to.equal(donationAmount - fee);
+        cryptAid.connect(author).cancelCampaign(0),
+      ).to.be.revertedWithCustomError(cryptAid, "Unauthorized");
     });
   });
 
-  describe("Complex Scenarios", function () {
-    it("Should manage multiple campaigns independently", async function () {
-      await cryptAid.connect(user1).addCampaign("Campaign 1", "D1", "v1", "i1");
-      await cryptAid.connect(user2).addCampaign("Campaign 2", "D2", "v2", "i2");
-      await cryptAid.connect(user3).addCampaign("Campaign 3", "D3", "v3", "i3");
+  /*//////////////////////////////////////////////////////////////
+                        PLATFORM MANAGEMENT
+  //////////////////////////////////////////////////////////////*/
 
-      await cryptAid.connect(owner).donate(1, { value: ethers.parseEther("1.0") });
-      await cryptAid.connect(owner).donate(2, { value: ethers.parseEther("2.0") });
-      await cryptAid.connect(owner).donate(3, { value: ethers.parseEther("3.0") });
-
-      expect((await cryptAid.campaings(1)).balance).to.equal(ethers.parseEther("1.0"));
-      expect((await cryptAid.campaings(2)).balance).to.equal(ethers.parseEther("2.0"));
-      expect((await cryptAid.campaings(3)).balance).to.equal(ethers.parseEther("3.0"));
-
-      await cryptAid.connect(user2).withdraw(2);
-
-      expect((await cryptAid.campaings(1)).active).to.equal(true);
-      expect((await cryptAid.campaings(2)).active).to.equal(false);
-      expect((await cryptAid.campaings(3)).active).to.equal(true);
+  describe("platform fees", () => {
+    it("allows owner to update fee", async () => {
+      await expect(cryptAid.updatePlatformFee(500))
+        .to.emit(cryptAid, "FeeUpdated")
+        .withArgs(250, 500);
     });
 
-    it("Should handle complete campaign lifecycle", async function () {
-      await cryptAid.connect(user1).addCampaign("Full Cycle", "Test", "v", "i");
-      let campaign = await cryptAid.campaings(1);
-      expect(campaign.active).to.equal(true);
-      expect(campaign.balance).to.equal(0);
-
-      await cryptAid.connect(user2).donate(1, { value: ethers.parseEther("0.5") });
-      await cryptAid.connect(user3).donate(1, { value: ethers.parseEther("0.5") });
-      campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(ethers.parseEther("1.0"));
-
-      await cryptAid.connect(user1).withdraw(1);
-      campaign = await cryptAid.campaings(1);
-      expect(campaign.active).to.equal(false);
-
+    it("reverts fee above max", async () => {
       await expect(
-        cryptAid.connect(user2).donate(1, { value: ethers.parseEther("0.1") })
-      ).to.be.revertedWith("Campaign is not active");
+        cryptAid.updatePlatformFee(2000),
+      ).to.be.revertedWithCustomError(cryptAid, "InvalidFee");
     });
 
-    it("Should maintain correct balance after multiple transactions", async function () {
-      await cryptAid.connect(owner).addCampaign("Multi TX", "Test", "v", "i");
+    it("withdraws platform fees", async () => {
+      await cryptAid
+        .connect(author)
+        .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
 
-      const donations = [
-        ethers.parseEther("0.1"),
-        ethers.parseEther("0.2"),
-        ethers.parseEther("0.3"),
-        ethers.parseEther("0.4"),
-      ];
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
 
-      let expectedTotal = 0n;
-      for (const amount of donations) {
-        await cryptAid.connect(user1).donate(1, { value: amount });
-        expectedTotal = expectedTotal + amount;
-      }
+      const balanceBefore = await ethers.provider.getBalance(owner.address);
 
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(expectedTotal);
-    });
-  });
+      await cryptAid.withdrawPlatformFees();
 
-  describe("Edge Cases", function () {
-    it("Should handle very small values", async function () {
-      await cryptAid.connect(owner).addCampaign("Tiny", "Test", "v", "i");
-      
-      await cryptAid.connect(user1).donate(1, { value: 1 });
-      
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(1);
-    });
-
-    it("Should handle very large values", async function () {
-      await cryptAid.connect(owner).addCampaign("Huge", "Test", "v", "i");
-      
-      const hugeAmount = ethers.parseEther("1000");
-      await cryptAid.connect(user1).donate(1, { value: hugeAmount });
-      
-      const campaign = await cryptAid.campaings(1);
-      expect(campaign.balance).to.equal(hugeAmount);
-    });
-
-    it("Should fail when accessing campaign with ID 0", async function () {
-      const campaign = await cryptAid.campaings(0);
-      expect(campaign.author).to.equal(ethers.ZeroAddress);
-      expect(campaign.active).to.equal(false);
+      const balanceAfter = await ethers.provider.getBalance(owner.address);
+      expect(balanceAfter).to.be.gt(balanceBefore);
     });
   });
 });
+
+/*//////////////////////////////////////////////////////////////
+                          HELPERS
+//////////////////////////////////////////////////////////////*/
+
+async function time() {
+  const block = await ethers.provider.getBlock("latest");
+  return block!.timestamp;
+}
+
+async function increaseTime(seconds: number) {
+  await ethers.provider.send("evm_increaseTime", [seconds]);
+  await ethers.provider.send("evm_mine", []);
+}

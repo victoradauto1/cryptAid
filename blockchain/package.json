@@ -1,31 +1,26 @@
 {
   "name": "blockchain",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "license": "ISC",
   "scripts": {
     "test": "npx hardhat test",
-    "coverage": "npx hardhat test --coverage",
-    "compile": "npx hardhat compile",
-    "deploy": "npx hardhat ignition deploy ./ignition/modules/CryptAid.ts --network sepolia"
+    "coverage": "npx hardhat coverage",
+    "compile": "npx hardhat compile"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "^4.0.2",
-    "@nomicfoundation/hardhat-ignition": "^3.0.3",
-    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.0",
-    "@types/chai": "^4.3.20",
-    "@types/chai-as-promised": "^8.0.2",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^22.18.8",
-    "chai": "^5.3.3",
-    "ethers": "^6.15.0",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.0.7",
-    "mocha": "^11.7.4",
-    "typescript": "~5.8.0"
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.17",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^22.19.2",
+    "chai": "^4.3.7",
+    "hardhat": "^2.26.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.10.0"
   }
 }

@@ -1,20 +1,47 @@
-# Node modules
-/node_modules
+# ======================
+# Node / NPM
+# ======================
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
 
-# Compilation output
-/dist
+# ======================
+# Env
+# ======================
+.env
+.env.*
 
-# pnpm deploy output
-/bundle
+# ======================
+# Hardhat
+# ======================
+blockchain/cache/
+blockchain/artifacts/
+blockchain/coverage/
+blockchain/coverage.json
 
-# Hardhat Build Artifacts
-/artifacts
+# Hardhat Ignition
+blockchain/ignition/deployments/
 
-# Hardhat compilation (v2) support directory
-/cache
+# ======================
+# TypeChain
+# ======================
+blockchain/typechain/
+blockchain/typechain-types/
 
-# Typechain output
-/types
+# ======================
+# Foundry (se aparecer de novo)
+# ======================
+blockchain/lib/
+blockchain/out/
 
-# Hardhat coverage reports
-/coverage
+# ======================
+# VSCode
+# ======================
+.vscode/
+
+# ======================
+# OS
+# ======================
+.DS_Store
+Thumbs.db

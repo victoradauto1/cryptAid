@@ -1,46 +1,47 @@
-import type { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import "@typechain/hardhat";
+import "solidity-coverage";
+import "@nomicfoundation/hardhat-ignition-ethers";
+import * as dotenv from "dotenv";
 
-import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
-import { configVariable } from "hardhat/config";
+dotenv.config();
 
 const config: HardhatUserConfig = {
-  plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
-    profiles: {
-      default: {
-        version: "0.8.30",
-      },
-      production: {
-        version: "0.8.30",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
+    version: "0.8.30",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
       },
     },
   },
+
+  typechain: {
+    outDir: "typechain-types",
+    target: "ethers-v6",
+  },
+
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts",
+  },
+
   networks: {
-    hardhatMainnet: {
-      type: "edr-simulated",
-      chainType: "l1",
-    },
-    hardhatOp: {
-      type: "edr-simulated",
-      chainType: "op",
-    },
     sepolia: {
-      type: "http",
-      chainType: "l1",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+      url: process.env.SEPOLIA_RPC_URL || "",
+      accounts: process.env.SEPOLIA_PRIVATE_KEY
+        ? [process.env.SEPOLIA_PRIVATE_KEY]
+        : [],
+      gas: 3_000_000,
     },
   },
-   verify: {
-    etherscan: {
-      apiKey: configVariable("YOUR_ETHERSCAN_API_KEY"),
-    },
+
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
 };
 
