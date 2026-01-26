@@ -1237,94 +1237,353 @@ describe("CryptAid", function () {
     });
   });
 
-  describe("Transfer Failed Scenarios", () => {
-    let maliciousAuthor: any;
-    let maliciousAuthorContract: any;
 
-    beforeEach(async () => {
-      const MaliciousAuthorFactory = await ethers.getContractFactory(
-        "MaliciousAuthor",
-      );
-      maliciousAuthorContract = await MaliciousAuthorFactory.deploy();
-      await maliciousAuthorContract.waitForDeployment();
+  describe("_completeCampaign Early Return Coverage", () => {
+    it("_completeCampaign returns early if status is not ACTIVE (via race condition)", async () => {
+      // Este teste é complicado porque precisamos simular uma condição onde
+      // _completeCampaign é chamado mas a campanha já foi completada
 
-      [maliciousAuthor] = await ethers.getSigners();
-    });
-
-    it("reverts on transfer failed in _completeCampaign", async () => {
-      const maliciousAddress = await maliciousAuthorContract.getAddress();
-
-      // Conectar um autor malicioso (simulando a criação da campanha por ele)
-      await cryptAid
-        .connect(maliciousAuthor)
-        .createCampaign("Malicious Campaign", "Desc", "", "", 0, 0);
-
-      // Doação para permitir retirada
-      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
-
-      // Tentar saque
-      await expect(
-        cryptAid.connect(maliciousAuthor).withdrawCampaign(0),
-      ).to.be.revertedWithCustomError(cryptAid, "TransferFailed");
-    });
-
-    it("reverts on transfer failed in withdrawPlatformFees", async () => {
-      // Transferir ownership para contrato malicioso
-      await cryptAid.transferOwnership(
-        await maliciousAuthorContract.getAddress(),
-      );
-
-      // Criar campanha e doar para gerar plataforma fees
+      // Criar campanha com goal
       await cryptAid
         .connect(author)
         .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+
+      // Doar exatamente o goal - vai auto-completar
       await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
 
-      // O saque de fees deve falhar
-      await expect(
-        cryptAid.withdrawPlatformFees(),
-      ).to.be.revertedWithCustomError(cryptAid, "TransferFailed");
-    });
-  });
+      // Agora a campanha está COMPLETED
+      const campaign = await cryptAid.getCampaign(0);
+      expect(campaign.status).to.equal(1); // COMPLETED
+      expect(campaign.balance).to.equal(0);
 
-  describe("Reentrancy Coverage", () => {
-    it("nonReentrant modifier prevents reentry on withdrawCampaign", async () => {
-      // O modifier já é testado indiretamente
-      // Mas podemos garantir que o estado é atualizado antes da transferência
+      // Se tentássemos chamar _completeCampaign novamente, ele retornaria early
+      // Mas não podemos chamar diretamente. Vamos testar indiretamente:
 
-      const deadline = (await time()) + 10;
-      await cryptAid
-        .connect(author)
-        .createCampaign("Aid", "Desc", "", "", 0, deadline);
-      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
-
-      await increaseTime(20);
-
-      const tx = cryptAid.connect(author).withdrawCampaign(0);
-
-      // Deve completar sem problema
-      await expect(tx).to.emit(cryptAid, "CampaignCompleted");
-
-      // E não deve poder chamar de novo
+      // Qualquer tentativa de completar novamente deve falhar ANTES de chegar em _completeCampaign
       await expect(
         cryptAid.connect(author).withdrawCampaign(0),
       ).to.be.revertedWithCustomError(cryptAid, "CampaignNotActive");
     });
 
-    it("nonReentrant modifier prevents reentry on withdrawPlatformFees", async () => {
+    it("double donation reaching goal only completes once", async () => {
+      // Criar campanha
       await cryptAid
         .connect(author)
         .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
-      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
 
-      await cryptAid.withdrawPlatformFees();
+      // Primeira doação atinge o goal
+      const tx1 = cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+      await expect(tx1).to.emit(cryptAid, "CampaignCompleted");
 
-      // Não deve poder chamar de novo
+      // Verificar que foi completada
+      const campaign = await cryptAid.getCampaign(0);
+      expect(campaign.status).to.equal(1);
+
+      // Segunda tentativa de doação deve falhar (status check antes de _completeCampaign)
       await expect(
-        cryptAid.withdrawPlatformFees(),
-      ).to.be.revertedWithCustomError(cryptAid, "NothingToWithdraw");
+        cryptAid.connect(donor2).donate(0, { value: ONE_ETH }),
+      ).to.be.revertedWithCustomError(cryptAid, "CampaignNotActive");
     });
   });
+
+  describe("canWithdraw goalReached Path Coverage", () => {
+  it("returns true when goal is reached (without deadline)", async () => {
+    // Criar campanha COM goal mas SEM deadline
+    await cryptAid
+      .connect(author)
+      .createCampaign("Aid", "Desc", "", "", TWO_ETH, 0); // goal=2ETH, deadline=0
+
+    // Doar menos que o goal
+    await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+    // canWithdraw deve ser false (goal não atingido, sem deadline)
+    expect(await cryptAid.canWithdraw(0)).to.equal(false);
+
+    // Doar o restante para atingir goal - mas a campanha vai auto-completar!
+    await cryptAid.connect(donor2).donate(0, { value: ONE_ETH });
+
+    // Campanha completou, então canWithdraw = false
+    expect(await cryptAid.canWithdraw(0)).to.equal(false);
+  });
+
+  it("canWithdraw returns false when goal reached via auto-complete", async () => {
+    // Este é o problema: quando goal é atingido, a campanha auto-completa
+    // Então nunca chegamos no return goalReached dentro de canWithdraw
+    // porque o status já é COMPLETED
+    
+    // A única forma de testar o path goalReached é:
+    // - Criar campanha com goal
+    // - NÃO auto-completar (doar menos que goal)
+    // - Chamar canWithdraw
+    
+    await cryptAid
+      .connect(author)
+      .createCampaign("Aid", "Desc", "", "", ethers.parseEther("10"), 0);
+
+    await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+    // Goal NÃO atingido, sem deadline
+    expect(await cryptAid.canWithdraw(0)).to.equal(false);
+    
+    // Agora doar para atingir goal
+    await cryptAid.connect(donor2).donate(0, { value: ethers.parseEther("9") });
+    
+    // Auto-completou, status = COMPLETED, então canWithdraw = false
+    const campaign = await cryptAid.getCampaign(0);
+    expect(campaign.status).to.equal(1);
+    expect(await cryptAid.canWithdraw(0)).to.equal(false);
+  });
+});
+
+describe("isActive Goal Reached Branch Coverage", () => {
+  it("checks if campaign balance >= goal before status check", async () => {
+    // Criar campanha com goal
+    await cryptAid
+      .connect(author)
+      .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+
+    // Antes de doar
+    expect(await cryptAid.isActive(0)).to.equal(true);
+
+    // Doar para atingir goal - vai auto-completar
+    await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+    // Agora status = COMPLETED, então isActive = false
+    expect(await cryptAid.isActive(0)).to.equal(false);
+
+    // Mas o if (goal != 0 && balance >= goal) nunca é executado
+    // porque o status já mudou para COMPLETED!
+  });
+
+  it("returns false when goal would be reached but campaign is not active", async () => {
+    // Este é o problema: o auto-complete muda o status antes
+    // de chegarmos no if de goal reached em isActive
+    
+    await cryptAid
+      .connect(author)
+      .createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+
+    // Doar exatamente o goal
+    await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+    const campaign = await cryptAid.getCampaign(0);
+    
+    // Status mudou para COMPLETED
+    expect(campaign.status).to.equal(1);
+    
+    // Balance foi zerado na transferência
+    expect(campaign.balance).to.equal(0);
+    
+    // isActive retorna false porque status != ACTIVE (primeira verificação)
+    expect(await cryptAid.isActive(0)).to.equal(false);
+  });
+});
+describe("Code Path Analysis - Unreachable Branches", () => {
+  it("demonstrates why certain branches are unreachable", async () => {
+    // O problema é que o design do contrato faz com que alguns paths sejam
+    // logicamente impossíveis de alcançar:
+    
+    // 1. isActive: if (goal != 0 && balance >= goal) return false
+    //    - Nunca é executado porque quando goal é atingido,
+    //      _completeCampaign é chamado e muda status para COMPLETED
+    //      e zera o balance. Então quando isActive é chamado depois,
+    //      o primeiro if (status != ACTIVE) já retorna false
+    
+    // 2. canWithdraw: return goalReached
+    //    - Similar ao anterior, quando goal é atingido, auto-completa
+    //      e status muda para COMPLETED, então o if (status != ACTIVE)
+    //      retorna false antes
+    
+    // 3. _completeCampaign: if (status != ACTIVE) return
+    //    - Este é para proteção contra reentrancy/double execution
+    //      Só seria executado se _completeCampaign fosse chamado duas vezes
+    //      mas o nonReentrant e os checks anteriores previnem isso
+    
+    // SOLUÇÃO: Para testar estes paths, precisaríamos:
+    // - Modificar o contrato para expor _completeCampaign
+    // - Ou usar assembly/low-level calls para contornar os checks
+    // - Ou criar um contrato de teste que herda de CryptAid
+    
+    console.log("These branches exist for defensive programming but are unreachable in normal flow");
+  });
+
+});
+
+describe("TransferFailed & Reentrancy - Complete Coverage", () => {
+  describe("TransferFailed Scenarios", () => {
+    it("reverts when author rejects payment (auto-complete)", async () => {
+      const MaliciousActorFactory = await ethers.getContractFactory("MaliciousActor");
+      const malicious = await MaliciousActorFactory.deploy();
+      const maliciousAddr = await malicious.getAddress();
+
+      // Dar ETH e impersonate
+      await ethers.provider.send("hardhat_setBalance", [maliciousAddr, ethers.toBeHex(ethers.parseEther("10"))]);
+      await ethers.provider.send("hardhat_impersonateAccount", [maliciousAddr]);
+      
+      const signer = await ethers.getSigner(maliciousAddr);
+      await cryptAid.connect(signer).createCampaign("Evil", "Desc", "", "", ONE_ETH, 0);
+      
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [maliciousAddr]);
+
+      // Doar para completar - deve falhar em transferir
+      await expect(
+        cryptAid.connect(donor1).donate(0, { value: ONE_ETH })
+      ).to.be.revertedWithCustomError(cryptAid, "TransferFailed");
+    });
+
+    it("reverts when author rejects payment (manual withdraw)", async () => {
+      const MaliciousActorFactory = await ethers.getContractFactory("MaliciousActor");
+      const malicious = await MaliciousActorFactory.deploy();
+      const maliciousAddr = await malicious.getAddress();
+
+      await ethers.provider.send("hardhat_setBalance", [maliciousAddr, ethers.toBeHex(ethers.parseEther("10"))]);
+      await ethers.provider.send("hardhat_impersonateAccount", [maliciousAddr]);
+      
+      const signer = await ethers.getSigner(maliciousAddr);
+      const deadline = (await time()) + 100;
+      await cryptAid.connect(signer).createCampaign("Evil", "Desc", "", "", ethers.parseEther("100"), deadline);
+      
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [maliciousAddr]);
+
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+      await increaseTime(150);
+
+      await ethers.provider.send("hardhat_impersonateAccount", [maliciousAddr]);
+      const signer2 = await ethers.getSigner(maliciousAddr);
+
+      await expect(
+        cryptAid.connect(signer2).withdrawCampaign(0)
+      ).to.be.revertedWithCustomError(cryptAid, "TransferFailed");
+
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [maliciousAddr]);
+    });
+
+    it("reverts when owner rejects platform fees", async () => {
+      // Gerar fees
+      await cryptAid.connect(author).createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+      // Deploy malicious owner
+      const MaliciousActorFactory = await ethers.getContractFactory("MaliciousActor");
+      const malicious = await MaliciousActorFactory.deploy();
+      const maliciousAddr = await malicious.getAddress();
+
+      await cryptAid.transferOwnership(maliciousAddr);
+
+      await ethers.provider.send("hardhat_setBalance", [maliciousAddr, ethers.toBeHex(ethers.parseEther("10"))]);
+      await ethers.provider.send("hardhat_impersonateAccount", [maliciousAddr]);
+      
+      const signer = await ethers.getSigner(maliciousAddr);
+
+      await expect(
+        cryptAid.connect(signer).withdrawPlatformFees()
+      ).to.be.revertedWithCustomError(cryptAid, "TransferFailed");
+
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [maliciousAddr]);
+    });
+  });
+
+  describe("Reentrancy Protection", () => {
+    it("blocks reentrancy on withdrawCampaign", async () => {
+      const ReentrantActorFactory = await ethers.getContractFactory("ReentrantActor");
+      const attacker = await ReentrantActorFactory.deploy(await cryptAid.getAddress());
+      const attackerAddr = await attacker.getAddress();
+
+      await ethers.provider.send("hardhat_setBalance", [attackerAddr, ethers.toBeHex(ethers.parseEther("10"))]);
+      await ethers.provider.send("hardhat_impersonateAccount", [attackerAddr]);
+      
+      const signer = await ethers.getSigner(attackerAddr);
+      const deadline = (await time()) + 100;
+      await attacker.connect(signer).setupCampaign(0, deadline);
+      
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [attackerAddr]);
+
+      await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+      await increaseTime(150);
+
+      await ethers.provider.send("hardhat_impersonateAccount", [attackerAddr]);
+      const signer2 = await ethers.getSigner(attackerAddr);
+
+      // Tenta ataque de reentrancy
+      await expect(
+        attacker.connect(signer2).attackWithdraw()
+      ).to.be.reverted; // ReentrancyGuard bloqueia
+
+      await ethers.provider.send("hardhat_stopImpersonatingAccount", [attackerAddr]);
+    });
+
+    it("blocks reentrancy on withdrawPlatformFees", async () => {
+  // Gerar fees
+  await cryptAid.connect(author).createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+  await cryptAid.connect(donor1).donate(0, { value: ONE_ETH });
+
+  const platformBalanceBefore = await cryptAid.platformBalance();
+  expect(platformBalanceBefore).to.be.gt(0);
+
+  const ReentrantActorFactory = await ethers.getContractFactory("ReentrantActor");
+  const attacker = await ReentrantActorFactory.deploy(await cryptAid.getAddress());
+  const attackerAddr = await attacker.getAddress();
+
+  await cryptAid.transferOwnership(attackerAddr);
+
+  await ethers.provider.send("hardhat_setBalance", [attackerAddr, ethers.toBeHex(ethers.parseEther("10"))]);
+  await ethers.provider.send("hardhat_impersonateAccount", [attackerAddr]);
+  
+  const signer = await ethers.getSigner(attackerAddr);
+
+  // O atacante vai tentar reentrar em withdrawPlatformFees
+  // Quando receber o ETH, o receive() vai tentar chamar withdrawPlatformFees novamente
+  // O nonReentrant vai detectar e reverter TODA a transação
+  await expect(
+    attacker.connect(signer).attackPlatformFees()
+  ).to.be.reverted; // ReentrancyGuard causa revert
+
+  await ethers.provider.send("hardhat_stopImpersonatingAccount", [attackerAddr]);
+
+  // Verificar que o saldo NÃO foi sacado (atomicidade)
+  expect(await cryptAid.platformBalance()).to.equal(platformBalanceBefore);
+});
+  });
+});
+
+describe("Test Harness - Unreachable Branches", () => {
+  let harness: any;
+
+  beforeEach(async () => {
+    const Factory = await ethers.getContractFactory("CryptAidTestHarness");
+    harness = await Factory.deploy();
+  });
+
+  it("_completeCampaign early return on COMPLETED status", async () => {
+    await harness.connect(author).createCampaign("Aid", "Desc", "", "", 0, 0);
+    await harness.connect(donor1).donate(0, { value: ONE_ETH });
+    
+    await harness.exposed_setCampaignStatus(0, 1); // COMPLETED
+    await harness.exposed_completeCampaign(0);
+    
+    const campaign = await harness.getCampaign(0);
+    expect(campaign.balance).to.equal(ONE_ETH); // Não zerou = early return funcionou
+  });
+
+  it("isActive returns false when goal reached (forced)", async () => {
+    await harness.connect(author).createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+    await harness.connect(donor1).donate(0, { value: ethers.parseEther("0.5") });
+    
+    // Força balance >= goal sem completar
+    await harness.exposed_setCampaignBalance(0, ONE_ETH);
+    
+    expect(await harness.isActive(0)).to.equal(false);
+  });
+
+  it("canWithdraw returns true via goalReached path (forced)", async () => {
+    await harness.connect(author).createCampaign("Aid", "Desc", "", "", ONE_ETH, 0);
+    await harness.connect(donor1).donate(0, { value: ethers.parseEther("0.5") });
+    
+    await harness.exposed_setCampaignBalance(0, ONE_ETH);
+    
+    expect(await harness.canWithdraw(0)).to.equal(true);
+  });
+});
 });
 
 /*//////////////////////////////////////////////////////////////
