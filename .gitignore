@@ -1,6 +1,25 @@
+# Dependencies
 node_modules/
+
+# Environment
 .env
-.cache/
+
+# Next.js
+.next/
+out/
+
+# Hardhat / Web3
 artifacts/
 cache/
 typechain/
+
+# Tooling
+.cache/
+
+# Legacy frontend
+frontend-old/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
