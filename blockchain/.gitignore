@@ -1,44 +1,58 @@
 # ======================
-# Node / NPM
+# Node / Package managers
 # ======================
 node_modules/
 npm-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+
+# Lockfiles (use apenas UM no projeto)
 pnpm-lock.yaml
+package-lock.json
+yarn.lock
 
 # ======================
-# Env
+# Environment variables
 # ======================
 .env
 .env.*
+!.env.example
 
 # ======================
 # Hardhat
 # ======================
-blockchain/cache/
-blockchain/artifacts/
-blockchain/coverage/
-blockchain/coverage.json
+cache/
+artifacts/
+coverage/
+coverage.json
+gas-report.txt
 
 # Hardhat Ignition
-blockchain/ignition/deployments/
+ignition/
+# !ignition/modules/
 
 # ======================
-# TypeChain
+# TypeChain / Ethers
 # ======================
-blockchain/typechain/
-blockchain/typechain-types/
+typechain/
+typechain-types/
 
 # ======================
-# Foundry (se aparecer de novo)
+# Solidity tooling extras
 # ======================
-blockchain/lib/
-blockchain/out/
+.openzeppelin/
 
 # ======================
-# VSCode
+# Foundry (caso apareça)
+# ======================
+lib/
+out/
+
+# ======================
+# Editor / IDE
 # ======================
 .vscode/
+.idea/
 
 # ======================
 # OS
