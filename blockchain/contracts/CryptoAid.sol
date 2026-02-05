@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 
-contract CryptAid is ReentrancyGuard {
+contract CryptoAid is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                                 TYPES
     //////////////////////////////////////////////////////////////*/

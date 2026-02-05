@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import "../CryptAid.sol";
+import "../CryptoAid.sol";
 
 /**
- * @title CryptAidTestHarness
+ * @title CryptoAidTestHarness
  * @notice Exposes internal functions and state setters for testing unreachable branches
  * @dev Used to achieve 100% code coverage by testing defensive programming paths
  */
-contract CryptAidTestHarness is CryptAid {
+contract CryptoAidTestHarness is CryptoAid {
     /**
      * @notice Exposes _completeCampaign for direct testing
      * @dev Tests early return when status != ACTIVE
@@ -21,7 +21,10 @@ contract CryptAidTestHarness is CryptAid {
      * @notice Allows forcing campaign status for testing
      * @dev Tests state-dependent logic without going through normal flow
      */
-    function exposed_setCampaignStatus(uint256 campaignId, CampaignStatus status) external {
+    function exposed_setCampaignStatus(
+        uint256 campaignId,
+        CampaignStatus status
+    ) external {
         campaigns[campaignId].status = status;
     }
 
@@ -29,7 +32,10 @@ contract CryptAidTestHarness is CryptAid {
      * @notice Allows forcing campaign balance for testing
      * @dev Tests goal-reached logic without actual donations
      */
-    function exposed_setCampaignBalance(uint256 campaignId, uint256 balance) external {
+    function exposed_setCampaignBalance(
+        uint256 campaignId,
+        uint256 balance
+    ) external {
         campaigns[campaignId].balance = balance;
     }
 }
@@ -51,39 +57,49 @@ contract MaliciousActor {
  * @dev Used to verify nonReentrant modifier protection
  */
 contract ReentrantActor {
-    CryptAid public cryptAid;
+    CryptoAid public cryptoAid;
     uint256 public campaignId;
     bool public shouldAttack;
-    
-    constructor(address _cryptAid) {
-        cryptAid = CryptAid(_cryptAid);
+
+    constructor(address _cryptoAid) {
+        cryptoAid = CryptoAid(_cryptoAid);
     }
-    
+
     /**
      * @notice Creates a campaign for attack setup
      */
-    function setupCampaign(uint256 goal, uint256 deadline) external returns (uint256) {
-        campaignId = cryptAid.createCampaign("Attack", "Desc", "", "", goal, deadline);
+    function setupCampaign(
+        uint256 goal,
+        uint256 deadline
+    ) external returns (uint256) {
+        campaignId = cryptoAid.createCampaign(
+            "Attack",
+            "Desc",
+            "",
+            "",
+            goal,
+            deadline
+        );
         return campaignId;
     }
-    
+
     /**
      * @notice Attempts reentrancy on withdrawCampaign
      */
     function attackWithdraw() external {
         shouldAttack = true;
-        cryptAid.withdrawCampaign(campaignId);
+        cryptoAid.withdrawCampaign(campaignId);
     }
-    
+
     /**
      * @notice Attempts reentrancy on withdrawPlatformFees
      */
     function attackPlatformFees() external {
         shouldAttack = true;
         campaignId = type(uint256).max;
-        cryptAid.withdrawPlatformFees();
+        cryptoAid.withdrawPlatformFees();
     }
-    
+
     /**
      * @notice Receives ETH and attempts reentry
      * @dev Uses campaignId as flag: max(uint256) = platform fees attack
@@ -91,10 +107,11 @@ contract ReentrantActor {
     receive() external payable {
         if (shouldAttack) {
             shouldAttack = false;
+
             if (campaignId == type(uint256).max) {
-                cryptAid.withdrawPlatformFees();
+                cryptoAid.withdrawPlatformFees();
             } else {
-                cryptAid.withdrawCampaign(campaignId);
+                cryptoAid.withdrawCampaign(campaignId);
             }
         }
     }
