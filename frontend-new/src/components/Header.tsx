@@ -8,7 +8,7 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <span className="text-xl font-semibold">CryptoAid</span>
         <Image
-          src="/cryptAidIcon.png"
+          src="/vetor.png"
           alt="CryptoAid logo"
           width={32}
           height={32}
