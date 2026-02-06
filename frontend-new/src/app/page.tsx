@@ -28,6 +28,8 @@ export default function Home() {
             CryptoAid
           </PageTitle>
 
+          <p className="text-center">Decentralized online crowdfunding platform</p>
+
         </div>
 
         {/* Right */}
