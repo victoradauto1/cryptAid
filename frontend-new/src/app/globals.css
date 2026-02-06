@@ -24,3 +24,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.content {
+  padding-left: clamp(2rem, 10vw, 12rem);
+  padding-right: clamp(2rem, 10vw, 12rem);
+}
+
