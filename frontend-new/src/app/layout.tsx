@@ -35,8 +35,8 @@ export default function RootLayout({
           min-h-screen
           flex
           flex-col
-          bg-[var(--background)]
-          text-[var(--foreground)]
+          bg-background
+          text-foreground
         `}
       >
         <Header />

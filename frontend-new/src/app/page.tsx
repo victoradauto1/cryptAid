@@ -1,32 +1,34 @@
-import Header from "@/components/Header";
 import PageTitle from "@/components/PageTitle";
 import Image from "next/image";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#faf8f6] text-[#3b3b3b]">
+      
       {/* Hero */}
-      <section className="
-  max-w-7xl 
-  mx-auto 
-  px-6 
-  min-h-[75vh]
-  py-24
-  grid 
-  grid-cols-1 
-  md:grid-cols-2 
-  gap-12 
-  items-center
-">
-
+      <section
+        className="
+          max-w-7xl 
+          mx-auto 
+          px-6 
+          min-h-[75vh]
+          py-24
+          grid 
+          grid-cols-1 
+          md:grid-cols-2 
+          gap-12 
+          items-center
+        "
+      >
         {/* Left */}
         <div>
           <PageTitle className="text-7xl md:text-8xl lg:text-9xl text-[#3b3b3b] leading-none">
             CryptoAid
           </PageTitle>
 
-          <p className="text-center">Decentralized online crowdfunding platform</p>
-
+          <p className="text-center text-[#6b6b6b] mt-6">
+            Decentralized online crowdfunding platform
+          </p>
         </div>
 
         {/* Right */}
@@ -44,28 +46,69 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Actions */}
       <section className="max-w-7xl mx-auto px-6 py-24 grid grid-cols-1 md:grid-cols-3 gap-12">
-        <div>
-          <h3 className="text-xl font-semibold mb-3">Transparent</h3>
-          <p className="text-[#6b6b6b]">
-            All donations and campaign rules are fully auditable on-chain.
-          </p>
-        </div>
+        
+        {/* Create Campaign */}
+        <button
+          className="
+            bg-black 
+            text-white 
+            rounded-2xl 
+            h-48 
+            flex 
+            flex-col 
+            items-center 
+            justify-center 
+            text-lg 
+            font-semibold
+            hover:opacity-90 
+            transition
+          "
+        >
+          Create Campaign
+        </button>
 
-        <div>
-          <h3 className="text-xl font-semibold mb-3">Automated</h3>
-          <p className="text-[#6b6b6b]">
-            Smart contracts enforce deadlines, goals, and fund distribution.
-          </p>
-        </div>
+        {/* Search Campaign */}
+        <button
+          className="
+            bg-black 
+            text-white 
+            rounded-2xl 
+            h-48 
+            flex 
+            flex-col 
+            items-center 
+            justify-center 
+            text-lg 
+            font-semibold
+            hover:opacity-90 
+            transition
+          "
+        >
+          Search Campaign
+        </button>
 
-        <div>
-          <h3 className="text-xl font-semibold mb-3">Secure</h3>
-          <p className="text-[#6b6b6b]">
-            No intermediaries, no custody, no hidden logic.
-          </p>
-        </div>
+        {/* Existing Campaigns */}
+        <button
+          className="
+            bg-black 
+            text-white 
+            rounded-2xl 
+            h-48 
+            flex 
+            flex-col 
+            items-center 
+            justify-center 
+            text-lg 
+            font-semibold
+            hover:opacity-90 
+            transition
+          "
+        >
+          Existing Campaigns
+        </button>
+
       </section>
     </main>
   );
