@@ -26,7 +26,7 @@ export default function Header() {
           <a href="#campaigns" className="hover:opacity-70 transition">
             Campaigns
           </a>
-          <a href="#how-it-works" className="hover:opacity-70 transition">
+          <a href="/HowItWorks" className="hover:opacity-70 transition">
             How it works
           </a>
           <a href="#about" className="hover:opacity-70 transition">
@@ -36,7 +36,19 @@ export default function Header() {
 
         {/* Connect Wallet */}
         <div className="shrink-0">
-          <button className="px-5 py-2 rounded-full bg-[#7b3f3f] text-white text-sm hover:opacity-90 transition">
+          <button
+            className="
+              px-5 
+              py-2 
+              rounded-full 
+              bg-[#4f7cff] 
+              text-white 
+              text-sm
+              font-semibold 
+              hover:opacity-90 
+              transition
+            "
+          >
             Connect Wallet
           </button>
         </div>

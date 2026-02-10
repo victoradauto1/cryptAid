@@ -1,7 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import PageTitle from "@/components/PageTitle";
 import Image from "next/image";
 
 export default function Home() {
+  const fullText = "Decentralized online crowdfunding platform ";
+  const [animatedText, setAnimatedText] = useState("");
+  const [showCursor, setShowCursor] = useState(true);
+
+  useEffect(() => {
+    let index = 0;
+
+    const interval = setInterval(() => {
+      if (index < fullText.length) {
+        setAnimatedText(fullText.slice(0, index + 1));
+        index++;
+      } else {
+        clearInterval(interval);
+        // Esconde o cursor após 3 segundos do término da animação
+        setTimeout(() => {
+          setShowCursor(false);
+        }, 50);
+      }
+    }, 40);
+
+    return () => clearInterval(interval);
+  }, [fullText]);
+
   return (
     <main className="min-h-screen bg-[#faf8f6] text-[#3b3b3b]">
       
@@ -20,13 +46,14 @@ export default function Home() {
           "
         >
           {/* Left */}
-          <div>
+          <div className="md:pl-12 lg:pl-16">
             <PageTitle className="text-6xl md:text-7xl lg:text-8xl text-[#3b3b3b] leading-none">
               CryptoAid
             </PageTitle>
 
-            <p className="text-center text-[#6b6b6b] mt-3">
-              Decentralized online crowdfunding platform
+            <p className="text-center text-[#6b6b6b] mt-3 min-h-[1.5em]">
+              {animatedText}
+              {showCursor && <span className="animate-pulse">|</span>}
             </p>
           </div>
 
@@ -51,7 +78,6 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row gap-6 justify-center items-center max-w-2xl mx-auto">
             
-            {/* Search Campaign */}
             <button
               className="
                 bg-[#3f8f7b]
@@ -71,7 +97,6 @@ export default function Home() {
               Existing Campaigns
             </button>
 
-            {/* Create Campaign */}
             <button
               className="
                 bg-[#b24a4a]
