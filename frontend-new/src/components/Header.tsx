@@ -63,7 +63,7 @@ export default function Header() {
           <Link href="/HowItWorks" className="hover:opacity-70 transition">
             How it works
           </Link>
-          <a href="#about" className="hover:opacity-70 transition">
+          <a href="/About" className="hover:opacity-70 transition">
             About
           </a>
         </nav>
