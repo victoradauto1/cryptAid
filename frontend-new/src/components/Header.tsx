@@ -60,10 +60,10 @@ export default function Header() {
           <a href="#campaigns" className="hover:opacity-70 transition">
             Campaigns
           </a>
-          <Link href="/HowItWorks" className="hover:opacity-70 transition">
+          <Link href="/howItWorks" className="hover:opacity-70 transition">
             How it works
           </Link>
-          <a href="/About" className="hover:opacity-70 transition">
+          <a href="/about" className="hover:opacity-70 transition">
             About
           </a>
         </nav>
