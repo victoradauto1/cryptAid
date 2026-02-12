@@ -30,7 +30,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#faf8f6] text-[#3b3b3b]">
-      
       {/* Hero */}
       <section className="py-8">
         <div
@@ -77,7 +76,6 @@ export default function Home() {
       <section className="py-6 pb-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row gap-6 justify-center items-center max-w-2xl mx-auto">
-            
             <button
               className="
                 bg-[#3f8f7b]
@@ -115,7 +113,6 @@ export default function Home() {
             >
               Create Campaign
             </button>
-
           </div>
         </div>
       </section>
