@@ -16,9 +16,6 @@ typechain/
 # Tooling
 .cache/
 
-# Legacy frontend
-frontend-old/
-
 # Logs
 npm-debug.log*
 yarn-debug.log*
