@@ -23,7 +23,7 @@ import {
   ReactNode,
 } from "react";
 import { BrowserProvider, Contract, TransactionReceipt } from "ethers";
-import CryptoAidABI from "../abi/CryptoAid.json";
+import ABI from "../abi/CryptoAid.json";
 
 /* ================================================================
    ENV CONFIG
@@ -141,7 +141,7 @@ export function CryptoAidProvider({
 
       const contract = new Contract(
         CONTRACT_ADDRESS,
-        CryptoAidABI,
+        ABI,
         signer
       );
 
@@ -281,15 +281,18 @@ export function CryptoAidProvider({
 
     const handleChainChanged = () => window.location.reload();
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    // Cast to any to handle MetaMask's event emitter API
+    const ethereum = window.ethereum as any;
+
+    ethereum.on("accountsChanged", handleAccountsChanged);
+    ethereum.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener(
+      ethereum.removeListener(
         "accountsChanged",
         handleAccountsChanged
       );
-      window.ethereum.removeListener(
+      ethereum.removeListener(
         "chainChanged",
         handleChainChanged
       );
