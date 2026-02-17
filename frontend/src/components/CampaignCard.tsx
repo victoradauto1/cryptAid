@@ -1,6 +1,42 @@
 import Image from "next/image";
+import { CampaignView } from "../types/campaign";
 
-export default function CampaignCard() {
+/* ============================================================
+   TYPES
+============================================================ */
+
+interface CampaignCardProps {
+  campaign: CampaignView;
+}
+
+/* ============================================================
+   COMPONENT
+============================================================ */
+
+/**
+ * CampaignCard
+ *
+ * Displays a single crowdfunding campaign preview.
+ *
+ * Responsibilities:
+ * - Render campaign metadata
+ * - Show funding progress summary
+ * - Display campaign status
+ *
+ * Pure presentational component.
+ */
+export default function CampaignCard({
+  campaign,
+}: CampaignCardProps) {
+  const {
+    title,
+    description,
+    goal,
+    raised,
+    status,
+    isActive,
+  } = campaign;
+
   return (
     <div
       className="
@@ -19,7 +55,7 @@ export default function CampaignCard() {
       <div className="h-44 relative">
         <Image
           src="/selfhug.png"
-          alt="Campaign image"
+          alt={title}
           fill
           className="object-cover"
         />
@@ -29,23 +65,28 @@ export default function CampaignCard() {
       <div className="p-4 flex flex-col flex-1">
         <h3
           className="text-lg font-semibold mb-2 line-clamp-2"
-          title="Campaign title"
+          title={title}
         >
-          Help Communities With Transparent Crypto Donations
+          {title}
         </h3>
 
         <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-          Support impactful initiatives using blockchain transparency and
-          decentralized governance.
+          {description}
         </p>
 
         <div className="mt-auto flex items-center justify-between text-sm">
           <span className="text-gray-500">
-            Raised: <strong>12.4 ETH</strong>
+            Raised: <strong>{raised} ETH</strong> / {goal} ETH
           </span>
 
-          <span className="font-semibold text-[#3f8f7b]">
-            Active
+          <span
+            className={`font-semibold ${
+              isActive
+                ? "text-[#3f8f7b]"
+                : "text-gray-400"
+            }`}
+          >
+            {status}
           </span>
         </div>
       </div>

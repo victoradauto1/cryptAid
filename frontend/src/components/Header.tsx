@@ -11,7 +11,7 @@ export default function Header() {
   const isHome = pathname === "/";
 
   useEffect(() => {
-    if (isHome) return;
+    // if (isHome) return;
 
     const onScroll = () => {
       setScrolled(window.scrollY > 40);
@@ -26,7 +26,7 @@ export default function Header() {
       className={`
         z-50 transition-all duration-300
         ${
-          scrolled && !isHome
+          scrolled 
             ? "fixed top-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-md shadow-lg rounded-full px-6"
             : "relative w-full bg-[#fdfcfa] border-b border-black/5"
         }
@@ -57,7 +57,7 @@ export default function Header() {
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-10 text-sm text-[#3b3b3b]">
-          <a href="#campaigns" className="hover:opacity-70 transition">
+          <a href="/campaigns" className="hover:opacity-70 transition">
             Campaigns
           </a>
           <Link href="/howItWorks" className="hover:opacity-70 transition">
