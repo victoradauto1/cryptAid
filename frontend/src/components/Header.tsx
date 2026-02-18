@@ -46,7 +46,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center shrink-0">
           <Image
-            src="/crypto.png"
+            src="/logo.png"
             alt="CryptoAid logo"
             className="h-10 w-auto"
             width={300}
