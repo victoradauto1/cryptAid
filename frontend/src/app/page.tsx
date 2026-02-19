@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import PageTitle from "@/components/PageTitle";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   const fullText = "Decentralized online crowdfunding platform ";
@@ -18,7 +19,7 @@ export default function Home() {
         index++;
       } else {
         clearInterval(interval);
-        // Esconde o cursor após 3 segundos do término da animação
+
         setTimeout(() => {
           setShowCursor(false);
         }, 50);
@@ -76,43 +77,57 @@ export default function Home() {
       <section className="py-6 pb-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row gap-6 justify-center items-center max-w-2xl mx-auto">
-            <button
+            
+            {/* Primary Action - DONATE */}
+            <Link
+              href="/campaigns"
               className="
-                bg-[#3f8f7b]
+                bg-emerald-500
                 text-white
-                rounded-xl
+                rounded-full
                 px-8
-                py-6
+                py-4
                 text-lg
                 font-semibold
-                hover:brightness-110
-                transition
+                shadow-md
+                hover:bg-emerald-600
+                hover:shadow-lg
+                transition-all
+                duration-300
                 w-full
                 md:w-auto
                 md:flex-1
+                text-center
               "
             >
-              Existing Campaigns
-            </button>
+              Donate
+            </Link>
 
-            <button
+            {/* Secondary Action - CREATE CAMPAIGN */}
+            <Link
+              href="/create"
               className="
-                bg-[#b24a4a]
+                bg-[#4f7cff]
                 text-white
-                rounded-xl
+                rounded-full
                 px-8
-                py-6
+                py-4
                 text-lg
                 font-semibold
-                hover:brightness-110
-                transition
+                shadow-md
+                hover:bg-[#3f6ae0]
+                hover:shadow-lg
+                transition-all
+                duration-300
                 w-full
                 md:w-auto
                 md:flex-1
+                text-center
               "
             >
               Create Campaign
-            </button>
+            </Link>
+
           </div>
         </div>
       </section>
