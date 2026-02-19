@@ -105,7 +105,7 @@ export default function Home() {
 
             {/* Secondary Action - CREATE CAMPAIGN */}
             <Link
-              href="/create"
+              href="/createCampaign"
               className="
                 bg-[#4f7cff]
                 text-white

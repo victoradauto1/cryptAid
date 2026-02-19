@@ -4,6 +4,7 @@ import "./globals.css";
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { CryptoAidProvider } from "@/context/cryptoAidProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +18,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CryptoAid",
-  description: "Platform for creating campaigns and providing support via crypto.",
+  description:
+    "Platform for creating campaigns and providing support via crypto.",
 };
 
 export default function RootLayout({
@@ -42,7 +44,7 @@ export default function RootLayout({
         <Header />
 
         <main className="flex-1">
-          {children}
+          <CryptoAidProvider>{children}</CryptoAidProvider>
         </main>
 
         <Footer />
