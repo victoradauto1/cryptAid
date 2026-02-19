@@ -11,6 +11,12 @@
  *
  * Public read-only blockchain access MUST NOT depend
  * on this context.
+ *
+ * Connection Policy:
+ * - Does NOT auto-connect on mount
+ * - Requires explicit user authorization via connectWallet()
+ * - Uses sessionStorage to persist connection state within session
+ * - On new session (browser close/reopen), user must re-authorize
  */
 
 import {
@@ -35,6 +41,12 @@ const TARGET_CHAIN_ID = BigInt(
 
 const CONTRACT_ADDRESS = process.env
   .NEXT_PUBLIC_CONTRACT_ADDRESS as string;
+
+/* ================================================================
+   SESSION STORAGE KEYS
+================================================================ */
+
+const SESSION_KEY_CONNECTED = "cryptoaid_wallet_connected";
 
 /* ================================================================
    TYPES
@@ -120,9 +132,84 @@ export function CryptoAidProvider({
   );
 
   /* ================================================================
-     Wallet Connection
+     Auto-Reconnect Logic (Session-Based)
   ================================================================ */
 
+  /**
+   * On mount, check if user was connected in this session.
+   * If yes, auto-reconnect silently.
+   * If no, wait for explicit user action.
+   */
+  useEffect(() => {
+    const wasConnected = sessionStorage.getItem(SESSION_KEY_CONNECTED);
+
+    if (wasConnected === "true" && window.ethereum) {
+      // Silent reconnection (no modal needed)
+      connectWalletSilent();
+    }
+  }, []);
+
+  /* ================================================================
+     Wallet Connection (Silent)
+  ================================================================ */
+
+  /**
+   * Silent reconnection used on page refresh within the same session
+   */
+  const connectWalletSilent = async () => {
+    if (!window.ethereum || isConnecting) return;
+
+    try {
+      setIsConnecting(true);
+
+      const provider = new BrowserProvider(window.ethereum);
+      
+      // Get accounts without prompting (eth_accounts, not eth_requestAccounts)
+      const accounts = await provider.send("eth_accounts", []);
+      
+      if (!accounts.length) {
+        // User disconnected wallet externally, clear session
+        sessionStorage.removeItem(SESSION_KEY_CONNECTED);
+        return;
+      }
+
+      const network = await provider.getNetwork();
+
+      if (network.chainId !== TARGET_CHAIN_ID) {
+        console.warn("Wrong network detected on silent reconnect");
+        sessionStorage.removeItem(SESSION_KEY_CONNECTED);
+        return;
+      }
+
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+
+      const contract = new Contract(
+        CONTRACT_ADDRESS,
+        ABI,
+        signer
+      );
+
+      setProvider(provider);
+      setSigner(signer);
+      setAccount(address);
+      setContract(contract);
+    } catch (err) {
+      console.error("Silent wallet reconnection failed:", err);
+      sessionStorage.removeItem(SESSION_KEY_CONNECTED);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  /* ================================================================
+     Wallet Connection (User-Initiated)
+  ================================================================ */
+
+  /**
+   * Explicit connection triggered by user action (button click)
+   * This will prompt MetaMask authorization
+   */
   const connectWallet = useCallback(async () => {
     if (!window.ethereum || isConnecting) return;
 
@@ -130,10 +217,16 @@ export function CryptoAidProvider({
       setIsConnecting(true);
 
       const provider = new BrowserProvider(window.ethereum);
+      
+      // Request user authorization (prompts MetaMask)
+      await provider.send("eth_requestAccounts", []);
+
       const network = await provider.getNetwork();
 
       if (network.chainId !== TARGET_CHAIN_ID) {
-        throw new Error("Wrong network");
+        throw new Error(
+          `Wrong network. Please switch to chain ID ${TARGET_CHAIN_ID.toString()}`
+        );
       }
 
       const signer = await provider.getSigner();
@@ -150,20 +243,26 @@ export function CryptoAidProvider({
       setAccount(address);
       setContract(contract);
 
-      sessionStorage.removeItem("walletDisconnected");
-    } catch (err) {
+      // Mark as connected in this session
+      sessionStorage.setItem(SESSION_KEY_CONNECTED, "true");
+    } catch (err: any) {
       console.error("Wallet connection error:", err);
+      throw err; // Re-throw so UI can handle it
     } finally {
       setIsConnecting(false);
     }
   }, [isConnecting]);
+
+  /* ================================================================
+     Wallet Disconnection
+  ================================================================ */
 
   const disconnectWallet = useCallback(() => {
     setProvider(null);
     setSigner(null);
     setAccount(null);
     setContract(null);
-    sessionStorage.setItem("walletDisconnected", "true");
+    sessionStorage.removeItem(SESSION_KEY_CONNECTED);
   }, []);
 
   /* ================================================================
@@ -275,11 +374,19 @@ export function CryptoAidProvider({
     if (!window.ethereum) return;
 
     const handleAccountsChanged = (accounts: string[]) => {
-      if (!accounts.length) disconnectWallet();
-      else setAccount(accounts[0]);
+      if (!accounts.length) {
+        // User disconnected wallet externally
+        disconnectWallet();
+      } else {
+        // User switched accounts
+        setAccount(accounts[0]);
+      }
     };
 
-    const handleChainChanged = () => window.location.reload();
+    const handleChainChanged = () => {
+      // On chain change, reload to ensure consistency
+      window.location.reload();
+    };
 
     // Cast to any to handle MetaMask's event emitter API
     const ethereum = window.ethereum as any;
@@ -298,6 +405,10 @@ export function CryptoAidProvider({
       );
     };
   }, [disconnectWallet]);
+
+  /* ================================================================
+     CONTEXT VALUE
+  ================================================================ */
 
   const value = useMemo<CryptoAidContextType>(
     () => ({

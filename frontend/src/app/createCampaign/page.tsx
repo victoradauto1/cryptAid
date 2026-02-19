@@ -212,7 +212,7 @@ export default function CreateCampaign() {
             Create <span className="text-[#3f8f7b]">Campaign</span>
           </h1>
           <Link
-            href="/campaigns"
+            href="/"
             className="text-[#6b6b6b] hover:text-[#3b3b3b] font-medium transition-colors"
           >
             ← Back

@@ -41,10 +41,11 @@ export default function RootLayout({
           text-foreground
         `}
       >
-        <Header />
-
         <main className="flex-1">
-          <CryptoAidProvider>{children}</CryptoAidProvider>
+          <CryptoAidProvider>
+            <Header />
+            {children}
+          </CryptoAidProvider>
         </main>
 
         <Footer />
