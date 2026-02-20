@@ -185,6 +185,46 @@ export default function CreateCampaign() {
 
       console.log("Campaign created successfully:", receipt);
 
+      // Extract campaignId from event logs
+      // Cast receipt to access parsed logs with args
+      let campaignId: bigint | undefined;
+
+      try {
+        for (const log of receipt.logs || []) {
+          const parsedLog = log as any;
+          if (parsedLog.fragment?.name === "CampaignCreated" && parsedLog.args?.campaignId !== undefined) {
+            campaignId = parsedLog.args.campaignId;
+            break;
+          }
+        }
+      } catch (eventErr) {
+        console.warn("Could not extract campaignId from event logs:", eventErr);
+      }
+
+      if (campaignId !== undefined && campaignId !== null) {
+        // Save metadata off-chain
+        try {
+          const { saveCampaignMetadata } = await import(
+            "@/services/campaignMetadataService"
+          );
+
+          await saveCampaignMetadata({
+            campaignId: campaignId.toString(),
+            title: title.trim(),
+            description: description.trim(),
+            imageUrl: imageUrl.trim(),
+            videoUrl: videoUrl.trim(),
+            goal: goal,
+            deadline: Number(deadlineTimestamp),
+          });
+
+          console.log("Metadata saved successfully");
+        } catch (metadataErr) {
+          console.error("Failed to save metadata:", metadataErr);
+          // Continue even if metadata save fails
+        }
+      }
+
       resetForm();
       router.push("/campaigns");
     } catch (err: any) {
@@ -212,7 +252,7 @@ export default function CreateCampaign() {
             Create <span className="text-[#3f8f7b]">Campaign</span>
           </h1>
           <Link
-            href="/"
+            href="/campaigns"
             className="text-[#6b6b6b] hover:text-[#3b3b3b] font-medium transition-colors"
           >
             ← Back
