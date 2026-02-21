@@ -8,6 +8,8 @@ import { formatEther, parseEther } from "ethers";
 import { getReadOnlyContract } from "@/utils/web3provider";
 import { getCampaignMetadata } from "@/services/campaignMetadataService";
 import { useCryptoAid } from "@/context/cryptoAidProvider";
+import DonateModal from "../../../components/Donatemodal";
+import StatusBadge from "../../../components/Statusbadge ";
 
 /**
  * Campaign Details Page
@@ -106,9 +108,10 @@ export default function CampaignDetails() {
           await contract.getDonorCount(Number(campaignId))
         );
 
-        const progress = Number(goal) > 0 
-          ? Math.min((Number(raised) / Number(goal)) * 100, 100)
-          : 0;
+        const progress =
+          Number(goal) > 0
+            ? Math.min((Number(raised) / Number(goal)) * 100, 100)
+            : 0;
 
         let status: "ACTIVE" | "ENDED" | "SUCCESSFUL" = "ACTIVE";
         if (goalReached) status = "SUCCESSFUL";
@@ -246,17 +249,7 @@ export default function CampaignDetails() {
 
         {/* Status Badge */}
         <div className="mb-6">
-          <span
-            className={`inline-block px-4 py-1.5 rounded-full text-sm font-semibold ${
-              campaign.status === "SUCCESSFUL"
-                ? "bg-green-100 text-green-700"
-                : campaign.status === "ACTIVE"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-gray-100 text-gray-700"
-            }`}
-          >
-            {campaign.status}
-          </span>
+          <StatusBadge status={campaign.status} size="lg" />
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
@@ -383,55 +376,19 @@ export default function CampaignDetails() {
       </div>
 
       {/* Donate Modal */}
-      {showDonateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <h3 className="text-xl font-bold mb-4 text-[#3b3b3b]">
-              Make a Donation
-            </h3>
-
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2 text-[#3b3b3b]">
-                Amount (ETH)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0.1"
-                value={donationAmount}
-                onChange={(e) => setDonationAmount(e.target.value)}
-                className="w-full p-3 rounded-lg bg-[#faf8f6] border border-[#d0d0d0] text-[#3b3b3b] focus:outline-none focus:ring-2 focus:ring-[#3f8f7b]"
-              />
-            </div>
-
-            {donationError && (
-              <p className="text-sm text-red-600 mb-4">{donationError}</p>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDonateModal(false);
-                  setDonationAmount("");
-                  setDonationError("");
-                }}
-                disabled={isDonating}
-                className="flex-1 px-4 py-2 border border-[#d0d0d0] rounded-lg font-medium text-[#3b3b3b] hover:bg-[#faf8f6] transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeDonation}
-                disabled={isDonating}
-                className="flex-1 px-4 py-2 bg-[#3f8f7b] hover:bg-[#2d7561] text-white font-semibold rounded-lg transition-colors disabled:bg-[#9b9b9b] disabled:cursor-not-allowed"
-              >
-                {isDonating ? "Processing..." : "Confirm Donation"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DonateModal
+        isOpen={showDonateModal}
+        amount={donationAmount}
+        onAmountChange={setDonationAmount}
+        onCancel={() => {
+          setShowDonateModal(false);
+          setDonationAmount("");
+          setDonationError("");
+        }}
+        onConfirm={executeDonation}
+        disabled={isDonating}
+        error={donationError}
+      />
     </main>
   );
 }

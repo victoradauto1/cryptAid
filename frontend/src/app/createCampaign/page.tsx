@@ -23,6 +23,9 @@ import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import { parseEther } from "ethers";
 import { useCryptoAid } from "../../context/cryptoAidProvider";
+import ConfirmModal, { WalletIcon } from "../../components/Confirmmodal";
+import ProcessingOverlay from "../../components/Processingoverlay";
+import { FormInput, FormTextarea } from "../../components/Formcomponents";
 
 export default function CreateCampaign() {
   const router = useRouter();
@@ -186,13 +189,15 @@ export default function CreateCampaign() {
       console.log("Campaign created successfully:", receipt);
 
       // Extract campaignId from event logs
-      // Cast receipt to access parsed logs with args
       let campaignId: bigint | undefined;
 
       try {
         for (const log of receipt.logs || []) {
           const parsedLog = log as any;
-          if (parsedLog.fragment?.name === "CampaignCreated" && parsedLog.args?.campaignId !== undefined) {
+          if (
+            parsedLog.fragment?.name === "CampaignCreated" &&
+            parsedLog.args?.campaignId !== undefined
+          ) {
             campaignId = parsedLog.args.campaignId;
             break;
           }
@@ -364,202 +369,46 @@ export default function CreateCampaign() {
       </div>
 
       {/* Confirmation Modal */}
-      {showConfirmModal && (
-        <ConfirmModal
-          title={walletMissing ? "Connect Wallet" : "Confirm Campaign Creation"}
-          onCancel={() => {
-            setShowConfirmModal(false);
-            setWalletMissing(false);
-          }}
-          onConfirm={executeCreateCampaign}
-          confirmText={walletMissing ? "Connect Wallet" : "Create Campaign"}
-          disabled={isProcessing}
-        >
-          {walletMissing ? (
-            <p className="text-sm text-[#6b6b6b]">
-              You must connect your wallet before creating a campaign.
-            </p>
-          ) : (
-            <div className="space-y-3 text-sm text-[#6b6b6b]">
-              <div>
-                <strong className="text-[#3b3b3b]">Title:</strong> {title}
-              </div>
-              <div>
-                <strong className="text-[#3b3b3b]">Goal:</strong> {goal} ETH
-              </div>
-              <div>
-                <strong className="text-[#3b3b3b]">Deadline:</strong>{" "}
-                {new Date(deadline).toLocaleString()}
-              </div>
-              <div className="pt-2 border-t border-[#e0e0e0]">
-                <p className="text-xs">
-                  This will create a smart contract transaction. You'll need to
-                  confirm it in your wallet.
-                </p>
-              </div>
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        title={walletMissing ? "Connect Wallet" : "Confirm Campaign Creation"}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setWalletMissing(false);
+        }}
+        onConfirm={executeCreateCampaign}
+        confirmText={walletMissing ? "Connect Wallet" : "Create Campaign"}
+        disabled={isProcessing}
+        icon={walletMissing ? <WalletIcon /> : undefined}
+      >
+        {walletMissing ? (
+          <p className="text-sm text-[#6b6b6b]">
+            You must connect your wallet before creating a campaign.
+          </p>
+        ) : (
+          <div className="space-y-3 text-sm text-[#6b6b6b]">
+            <div>
+              <strong className="text-[#3b3b3b]">Title:</strong> {title}
             </div>
-          )}
-        </ConfirmModal>
-      )}
+            <div>
+              <strong className="text-[#3b3b3b]">Goal:</strong> {goal} ETH
+            </div>
+            <div>
+              <strong className="text-[#3b3b3b]">Deadline:</strong>{" "}
+              {new Date(deadline).toLocaleString()}
+            </div>
+            <div className="pt-2 border-t border-[#e0e0e0]">
+              <p className="text-xs">
+                This will create a smart contract transaction. You'll need to
+                confirm it in your wallet.
+              </p>
+            </div>
+          </div>
+        )}
+      </ConfirmModal>
 
       {/* Processing Overlay */}
-      {isProcessing && <ProcessingOverlay />}
+      <ProcessingOverlay isOpen={isProcessing} />
     </main>
-  );
-}
-
-/* ============================================================
-   FORM COMPONENTS
-============================================================ */
-
-interface FormInputProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  step?: string;
-  min?: string;
-  required?: boolean;
-  helpText?: string;
-}
-
-function FormInput({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  step,
-  min,
-  required = false,
-  helpText,
-}: FormInputProps) {
-  return (
-    <div>
-      <label className="block font-semibold mb-2 text-[#3b3b3b]">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-
-      <input
-        type={type}
-        step={step}
-        min={min}
-        placeholder={placeholder}
-        className="w-full p-3 rounded-lg bg-[#faf8f6] border border-[#d0d0d0] text-[#3b3b3b] focus:outline-none focus:ring-2 focus:ring-[#3f8f7b] focus:border-transparent transition-all"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-      />
-
-      {helpText && <p className="text-xs text-[#9b9b9b] mt-1">{helpText}</p>}
-    </div>
-  );
-}
-
-interface FormTextareaProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  rows?: number;
-  required?: boolean;
-  helpText?: string;
-}
-
-function FormTextarea({
-  label,
-  value,
-  onChange,
-  placeholder,
-  rows = 4,
-  required = false,
-  helpText,
-}: FormTextareaProps) {
-  return (
-    <div>
-      <label className="block font-semibold mb-2 text-[#3b3b3b]">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-
-      <textarea
-        placeholder={placeholder}
-        rows={rows}
-        className="w-full p-3 rounded-lg bg-[#faf8f6] border border-[#d0d0d0] text-[#3b3b3b] focus:outline-none focus:ring-2 focus:ring-[#3f8f7b] focus:border-transparent transition-all resize-none"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-      />
-
-      {helpText && <p className="text-xs text-[#9b9b9b] mt-1">{helpText}</p>}
-    </div>
-  );
-}
-
-/* ============================================================
-   MODAL COMPONENTS
-============================================================ */
-
-interface ConfirmModalProps {
-  title: string;
-  children: React.ReactNode;
-  onCancel: () => void;
-  onConfirm: () => void;
-  confirmText: string;
-  disabled?: boolean;
-}
-
-function ConfirmModal({
-  title,
-  children,
-  onCancel,
-  onConfirm,
-  confirmText,
-  disabled = false,
-}: ConfirmModalProps) {
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-        <h3 className="text-xl font-bold mb-4 text-[#3b3b3b]">{title}</h3>
-
-        <div className="mb-6">{children}</div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={disabled}
-            className="flex-1 px-4 py-2 border border-[#d0d0d0] rounded-lg font-medium text-[#3b3b3b] hover:bg-[#faf8f6] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={disabled}
-            className="flex-1 px-4 py-2 bg-[#3f8f7b] hover:bg-[#2d7561] text-white font-semibold rounded-lg transition-colors disabled:bg-[#9b9b9b] disabled:cursor-not-allowed"
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProcessingOverlay() {
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-sm w-full mx-4 text-center">
-        <div className="w-16 h-16 border-4 border-[#3f8f7b] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2 text-[#3b3b3b]">
-          Processing Transaction
-        </h3>
-        <p className="text-sm text-[#6b6b6b]">
-          Please confirm the transaction in your wallet and wait for blockchain
-          confirmation...
-        </p>
-      </div>
-    </div>
   );
 }
